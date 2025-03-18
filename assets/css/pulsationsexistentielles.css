@@ -1,0 +1,22 @@
+@import 'treeselectjs.css';
+
+.treeselect-demo{
+  width: 300px;
+  margin-top: 3px;
+  margin-right: 6px;
+}
+
+.treeselect-demo__slot {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+a.treeselect-demo__slot {
+  color: #101010;
+}
+
+.progress{
+  height:12px;margin-top: 12px;margin-left: 12px;
+}

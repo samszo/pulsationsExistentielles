@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pulsations Existentielles d'une raison trajective</title>
+    <script type="text/javascript" src="assets/js/d3.min.js"></script>
+    <script src="assets/js/bootstrap5.3.bundle.min.js"></script>
+    <script src="assets/js/all.min.js"></script>
+    
+    <link href="assets/css/bootstrap5.3.min.css" rel="stylesheet">
+    <link href="assets/css/menu.css" rel="stylesheet">
+    <link href="assets/css/all.min.css" rel="stylesheet">
+    <link href="assets/css/main.css" rel="stylesheet">
+    <link href="assets/css/pulsationsexistentielles.css" rel="stylesheet" />
+  
+</head>
+
+<body class="d-flex h-100 text-center text-white bg-dark">
+
+    <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
+
+
+        <header>
+            <div>
+                <nav class="navbar navbar-expand-lg bg-body-tertiary bg-dark border-bottom border-bottom-dark"
+                    data-bs-theme="dark">
+                    <div class="container-fluid">
+                        <a class="navbar-brand" href="#">
+                            <img src="assets/img/logo-paragraphe-blanc.svg" alt="Logo" width="86"
+                                class="d-inline-block align-text-top">
+                            Pulsations Existentielles d'une raison trajective
+                        </a>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                            <ul id="navbarMain" class="navbar-nav me-auto mb-2 mb-lg-0">
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+
+            </div>
+        </header>
+
+
+        <main class="container-fluid">
+            <div class="row">
+                <div class="col-4 text-bg-light p-3">
+                    <div id="infosRT" class="text-center">
+                    </div>
+                </div>
+                <div class="col-8" id="svgContent">
+                </div>                
+            </div>
+        </main>
+
+        <footer class="mt-auto text-white-50">
+            <p style="padding-top: 6px;">Design by <a href="https://samszo.univ-paris8.fr/" class="text-white">Samuel
+                    Szoniecky</a>
+                <a target="_blank" href="https://www.univ-paris8.fr/EA-349-Laboratoire-Paragraphe">
+                    <img style="height: 40px;" src="assets/img/logo-paragraphe-blanc.svg"
+                        alt="Laboratoire Paragraphe" />
+                </a>
+                <a target="_blank" href="https://github.com/samszo/HDR">
+                    <button type="button" class="btn btn-danger">
+                        <i class="fa-brands fa-github fa-2xl"></i>
+                    </button>
+                </a>
+                Template for <a href="https://getbootstrap.com/" class="text-white">Bootstrap</a>, by <a
+                    href="https://twitter.com/mdo" class="text-white">@mdo</a>.
+            </p>
+        </footer>
+
+    </div>
+
+
+    <div id="loading-container">
+        <div class="loadingio-spinner-double-ring-4dols36ufwg" id="ws-loading">
+            <div class="ldio-6pd26u1x99x">
+                <div></div>
+                <div></div>
+                <div>
+                    <div></div>
+                </div>
+                <div>
+                    <div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+
+        import {pulsationsExistentielles} from './assets/js/pulsationsExistentielles.js';        
+        import {pa} from './assets/js/authParams.js';
+        import {auth} from './assets/js/auth.js';
+        import {appUrl} from './assets/js/appUrl.js';
+        import {modal} from './assets/js/modal.js';
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        import {loader} from './assets/js/loader.js';
+
+        let curwait=0,
+            aUrl = new appUrl({'url':new URL(document.location)}),
+            rectSvg = d3.select('#svgContent').node().getBoundingClientRect(),
+            rectFooter = d3.select('footer').node().getBoundingClientRect(),
+            rectHeader = d3.select('header').node().getBoundingClientRect(),
+            pe = new pulsationsExistentielles({
+                    'urlSvg':"assets/img/pulsexistence.svg",
+                    'cont':d3.select("#svgContent"),
+                    'height':rectFooter.top-rectFooter.height-rectHeader.bottom,
+                    'width':rectSvg.width,
+                    'sources':"assets/data/sources.js",
+                    "navbar":d3.select('#navbarMain'), 
+                    "infosRT":d3.select('#infosRT'),
+                }),
+            a = new auth(pa);
+            a.getUser(u=>{
+                pe.omk = a.omk;                                
+            }); 
+            
+
+</script>
+
+</body>
+
+</html>
