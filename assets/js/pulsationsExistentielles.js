@@ -25,11 +25,14 @@ export class pulsationsExistentielles {
         this.tree = false,
         this.btnStart=params.btnStart ? params.btnStart : false;
         this.btnStop=params.btnStop ? params.btnStop : false;
+        this.events=params.events ? params.events : {};
+        
         this.svg = false;
         this.timelines = []; 
         this.ch = new cartoHexa({'noInit':true});
+        this.raisonstrajectives=[],
         this.rt=false;
-        let pa, slot, treeselect, raisonstrajectives=[],
+        let pa, slot, treeselect, 
             bbScene, maxloop = 4, numloop = 0, flux = [], 
             dur = 100, durMin = 500, durMax = 10000,
             layers = [
@@ -67,12 +70,12 @@ export class pulsationsExistentielles {
                     
             //création es élément d'infos pour la raison trajective
             if(me.infosRT){
+                me.infosRT.style("max-height",me.height+"px").style("overflow-y","auto");
                 me.infosRT.append("h4").attr('id',"titreRT").text("Veuillez sélectionner une raison trajective");
                 me.infosRT.append("p").attr("class","lead").attr('id',"auteurRT");
                 me.infosRT.append("p").attr('class',"text-start fw-lighter").attr('id',"descRT");
                 me.infosRT.append("h5").text("Détails des pulsations existentielles");
                 me.infosRT.append("ol").attr('id',"detailsPulEx").attr("class","list-group");
-
             }
             //création des éléments de navigation
             if(me.navbar){
@@ -107,7 +110,7 @@ export class pulsationsExistentielles {
                     if(s.url)jsonS.push(d3.json(s.url));
                     if(s.children){
                         s.children.forEach(c=>{
-                            raisonstrajectives.push({'id':c.value,'o':c,'pulsations':[]});
+                            me.raisonstrajectives.push({'id':c.value,'o':c,'pulsations':[]});
                         });
                     }
                 });
@@ -116,7 +119,7 @@ export class pulsationsExistentielles {
                         dataStory.forEach(ds=>{
                             let id = 's_'+j+'c'+ds['o:id'];
                             options[j].children.push({name: ds['o:title'],value:id,children: []}); 
-                            raisonstrajectives.push({'id':id,'o':ds,'pulsations':[]});
+                            me.raisonstrajectives.push({'id':id,'o':ds,'pulsations':[]});
                         })
                     });
                     treeselect = new Treeselect({
@@ -128,29 +131,9 @@ export class pulsationsExistentielles {
                     })
                     treeselect.srcElement.addEventListener('input', (e) => {
                         console.log('Selected value:', e.detail);
-
-                        purgeIHM();
-
-                        /*si multiselect
-                        e.detail.forEach(id=>{
-                            me.rt.push(raisonstrajectives.filter(s=>s.id==id)[0]);
-                        });
-                        */
-                       //si isSingleSelect = true
-                       me.rt.push(raisonstrajectives.filter(s=>s.id==e.detail)[0]);
-                       if(me.rt[0]){
-                            me.btnStart.attr('class','btn btn-outline-danger');
-                            me.btnStop.attr('class','btn btn-outline-success'); 
-                            //vérifie si le raisonstrajectives est dans omeka
-                            if(me.omk && me.rt[0].o['o:id']){
-                                me.infosRT.select("#titreRT").text(me.rt[0].o['o:title']);
-                                showRaisonTrajective();
-                            }else{
-                                me.infosRT.select("#titreRT").text(me.rt[0].o.name);
-                                this.playRaisonTrajective(null, me.rt[0].o);
-                            }  
-                       }
+                        me.showItemSelect(e.detail);
                     })
+                    if(me.events.endInit)me.events.endInit();
                     me.loader.hide(true);
                 });
             });
@@ -211,7 +194,35 @@ export class pulsationsExistentielles {
             }
         }
 
-        function showRaisonTrajective(){
+        this.showItemSelect=function(id){
+            purgeIHM();
+
+            /*si multiselect
+            e.detail.forEach(id=>{
+                me.rt.push(me.raisonstrajectives.filter(s=>s.id==id)[0]);
+            });
+            */
+           //si isSingleSelect = true
+           me.rt.push(me.raisonstrajectives.filter(s=>s.id==id)[0]);
+           if(me.rt[0]){
+                me.btnStart.attr('class','btn btn-outline-danger');
+                me.btnStop.attr('class','btn btn-outline-success'); 
+                //vérifie si le raisonstrajectives est dans omeka
+                if(me.omk && me.rt[0].o['o:id']){
+                    me.infosRT.select("#titreRT").text(me.rt[0].o['o:title']);
+                    me.showRaisonTrajective();
+                }else{
+                    me.infosRT.select("#titreRT").text(me.rt[0].o.name);
+                    me.playRaisonTrajective(null, me.rt[0].o);
+                }  
+           }else{
+                me.infosRT.select("#titreRT").text("Identifiant incorrect");
+           }
+
+        }
+
+        this.showRaisonTrajective=function(){
+            let erreurs = [];
             me.loader.show();
             console.log(me.rt[0].o);
             if(me.rt[0].o["dcterms:description"])me.infosRT.select("#descRT").text(me.rt[0].o["dcterms:description"][0]["@value"]);
@@ -227,9 +238,20 @@ export class pulsationsExistentielles {
             });
             if(me.rt[0].o["jdc:hasPulsationExistentielle"]){
                 //ordonne les pulsation par ordre dans le flux
-                let pulEx = me.rt[0].o["jdc:hasPulsationExistentielle"].sort((a, b) => a["@annotation"]["jdc:flux"][0]["@value"] - b["@annotation"]["jdc:flux"][0]["@value"]);
+                let pulExFlux = me.rt[0].o["jdc:hasPulsationExistentielle"].filter(p=>{
+                        if(p["@annotation"] && p["@annotation"]["jdc:flux"])return true
+                        else{
+                            erreurs.push({'message':"Dans la raison trajective :"
+                                +"<p class='fw-bold'>"+me.rt[0].o["o:title"]+"</p>"
+                                +"L'ordre de la pulsation existentielle :"
+                                +"<p class='fw-bold'>"+p.display_title+"</p>"
+                                +"n'est pas précisé.",'link': me.omk.getAdminLink(null,me.rt[0].o["o:id"],"o:Item")});                            
+                            return false
+                        }
+                    }),
+                    pulEx = pulExFlux.sort((a, b) => a["@annotation"]["jdc:flux"][0]["@value"] - b["@annotation"]["jdc:flux"][0]["@value"]),
                 //création des pulsations
-                let liPE = me.infosRT.select("#detailsPulEx").selectAll('li').data(pulEx)
+                    liPE = me.infosRT.select("#detailsPulEx").selectAll('li').data(pulEx)
                     .enter().append('li')
                         .attr('id',p=>"pe"+p.value_resource_id)
                         .attr("class","list-group-item"),
@@ -246,7 +268,15 @@ export class pulsationsExistentielles {
                         cl += " rounded-pill";
                         return cl;
                         }) 
-                    .text(p=>p["@annotation"] && p["@annotation"]["jdc:flux"] ? p["@annotation"]["jdc:flux"][0]["@value"] : "?");
+                    .text(p=>{
+                        if(p["@annotation"] && p["@annotation"]["jdc:flux"])return p["@annotation"]["jdc:flux"][0]["@value"]
+                        else{
+                            erreurs.push({'message':"Dans la pulsation existentielle :"
+                                +"<p class='fw-bold'>"+p.display_title+"</p>"
+                                +"L'ordre du flux n'est pas précisé.",'link': me.omk.getAdminLink(null,p.value_resource_id,"o:Item")});                            
+                            return "?"
+                        } 
+                    });
                 divPE.append('a')
                     .attr("class","badge") 
                     .attr('href',d=>{
@@ -263,7 +293,11 @@ export class pulsationsExistentielles {
                         let pe = me.omk.getItem(p.value_resource_id), pouvoirs = [];
                         if(pe["jdc:hasPouvoir"]){
                             pe["jdc:hasPouvoir"].forEach(p=>{
-                                pouvoirs.push({'pe':pe,'po':me.omk.getItem(p.value_resource_id)});
+                                if(p.value_resource_id)pouvoirs.push({'pe':pe,'po':me.omk.getItem(p.value_resource_id)});
+                                else erreurs.push({'message':"Dans la pulsation existentielle :<br>"
+                                        +pe['o:title']+"<br>"
+                                        +"Le pouvoir :<br>"
+                                        +p["@value"]+" : n'est pas un item.",'link': me.omk.getAdminLink(null,pe['o:id'],"o:Item")});
                             });
                         }
                         return pouvoirs;
@@ -281,7 +315,18 @@ export class pulsationsExistentielles {
                         cl += " rounded-pill";
                         return cl;
                         }) 
-                    .text(p=>p.po["dcterms:type"] ? p.po["dcterms:type"][0].display_title : "?");
+                    .text(
+                        p=>{
+                            if(p.po["dcterms:type"])return p.po["dcterms:type"][0].display_title
+                            else{
+                                erreurs.push({'message':"Dans la pulsation existentielle :"
+                                    +"<p class='fw-bold'>"+p.pe["o:title"]+"</p>"
+                                    +"Le type de pouvoir de :"
+                                    +"<p class='fw-bold'>"+p.po["o:title"]+"</p>"
+                                    +"n'est pas précisé.",'link': me.omk.getAdminLink(null,p.po["o:id"],"o:Item")});                            
+                                return "?"
+                            } 
+                        });
                 liPouv.append('a')
                     .attr("class","badge") 
                     .attr('href',p=>{
@@ -289,12 +334,23 @@ export class pulsationsExistentielles {
                     }).attr('target',"_blank")
                     .append('img').attr('src','assets/img/OmekaS.png')
                         .style("margin-top","-4px")
-                        .style("height","20px");
-                
-
+                        .style("height","20px");                
             }else{
                 me.infosRT.select("#detailsPulEx").append('li').text('Pas de pulsations existentielles');
             }
+            if(erreurs.length>0){
+                me.infosRT.select("#detailsPulEx").append('li').attr("class","list-group-item").append('ul').attr("class","list-group").selectAll('li').data(erreurs)
+                    .enter().append('li')
+                        .attr("class","list-group-item list-group-item-danger")
+                        .html(e=>e.message)
+                        .append('a')
+                        .attr('href',e=>e.link).attr('target',"_blank")
+                        .append('img').attr('src','assets/img/OmekaS.png')
+                            .style("margin-top","-4px")
+                            .style("height","20px");
+
+            }
+
             //regroupe les pulsations par ordre de flux
             //d3.group(me.rt[0].o["jdc:hasPulsationExistentielle"], d => d["@annotation"]["jdc:flux"][0]["@value"]);
             me.loader.hide(true);

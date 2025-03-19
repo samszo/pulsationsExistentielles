@@ -118,12 +118,16 @@
                     'sources':"assets/data/sources.js",
                     "navbar":d3.select('#navbarMain'), 
                     "infosRT":d3.select('#infosRT'),
+                    "events":{'endInit':showUrlParams}
                 }),
             a = new auth(pa);
             a.getUser(u=>{
-                pe.omk = a.omk;                                
+                pe.omk = a.omk;
             }); 
-            
+        function showUrlParams(){
+            //vérifie le passage de paramètres 
+            if(aUrl.params.has('idRT'))pe.showItemSelect("s_0c"+aUrl.params.get('idRT'));
+        }
 
 </script>
 
