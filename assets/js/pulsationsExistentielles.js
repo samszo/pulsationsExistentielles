@@ -247,7 +247,7 @@ export class pulsationsExistentielles {
         function showPulsationsExistentielles(oSource, prop, contPE, flux=false){
             let erreurs = [], rsPE = oSource[prop];
             if(rsPE){
-                //ordonne les pulsation par ordre dans le flux
+                //ordonne les pulsations par ordre dans le flux
                 let pulExFlux = rsPE.filter(p=>{
                         if(p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"])return true
                         else{
@@ -950,10 +950,13 @@ export class pulsationsExistentielles {
             //create raison trajective
             if(me.rt[0].o['o:title']){
                 graphCode += `
-                    raisonTrajective[${me.rt[0].o['o:title']}]-->pulsations{Pulsations existentielles};
+                    raisonTrajective[${me.rt[0].o['o:title']}];
                     rtEnd[Fin du flux]`;
-                //create flow for each pulsation existentielles
-                createPulsationSubgraph(me.rt[0].o,"jdc:hasPulsationExistentielle",'pulsations -->',niv);
+                //create flow for each pulsation existentielles dans l'odre défini
+                //ordonne les pulsations par ordre dans le flux
+                let pulExFlux = me.rt[0].o["jdc:hasPulsationExistentielle"].filter(p=>p["@annotation"] && p["@annotation"]["jdc:flux"]),
+                    pulEx = pulExFlux.sort((a, b) => a["@annotation"]["jdc:flux"][0]["@value"] - b["@annotation"]["jdc:flux"][0]["@value"]);
+                createPulsationSubgraph(pulEx,'raisonTrajective -->',niv);
             }else{
                 graphCode += `
                     raisonTrajective[Start] -->pulsations{Pas de pulsations existentielles};
@@ -1005,119 +1008,129 @@ export class pulsationsExistentielles {
         }
 
         //create event subgraph
-        function createPulsationSubgraph(d,p,startNode,niv){
-            let op = me.omk.getPropByTerm(p);            
-            if(d[p]){
-                d[p].forEach((vr,j)=>{
-                    //check if node exist
-                    if(items[vr.value_resource_id]){
+        function createPulsationSubgraph(rs,startNode,niv){
+            //${startNode} |${vr["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"] ? "success" : "danger";}|item${vr.value_resource_id}                                        
+
+            rs.forEach((vr,j)=>{
+                //check if node exist
+                let numFlux = vr["@annotation"] && vr["@annotation"]["jdc:flux"] ? vr["@annotation"]["jdc:flux"][0]["@value"] : "???";
+                if(items[vr.value_resource_id]){
+                    graphCode += `
+                    ${startNode} |${numFlux}|item${vr.value_resource_id}                                        
+                    `;
+                    links++;
+                    if(startNode.startsWith('pulsations'))linkPlus.push(links);
+                    if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
+                    if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
+                }else{
+                    graphCode += `
+                    subgraph peItem${vr.o['o:id']}[-]`;
+                    graphCode += `
+                    item${vr.o['o:id']}[${vr.o['o:title']}]-->estBon${vr.o['o:id']}{est bon ?}
+                    estBon${vr.o['o:id']}-->|yes|pouvoirPlus${vr.o['o:id']}{le pouvoir augmente}
+                    estBon${vr.o['o:id']}-->|no|pouvoirMoins${vr.o['o:id']}{le pouvoir diminu}
+                    end
+                    `;
+                    if(j>0){
+                        let numFluxPrev = rs[j-1]["@annotation"] && rs[j-1]["@annotation"]["jdc:flux"] ? rs[j-1]["@annotation"]["jdc:flux"][0]["@value"] : "???";
                         graphCode += `
-                        ${startNode} |${op['o:label']}|item${vr.value_resource_id}                                        
+                        item${rs[j-1].o['o:id']}-->|${numFluxPrev+' -> '+numFlux}|item${vr.o['o:id']}                                        
+                        `;
+                    }else{
+                        graphCode += `
+                        ${startNode} |${numFlux}|item${vr.o['o:id']}                                        
+                        `;    
+                    }
+                    /*ajoute le pouvoirs
+                    if(r['jdc:hasPouvoir']){
+                        graphCode += `
+                        item${r['o:id']}[${r['o:title']}]-->estBon${r['o:id']}{est bon ?}
+                        estBon${r['o:id']}-->|yes|pouvoirPlus${r['o:id']}{le pouvoir augmente}
+                        estBon${r['o:id']}-->|no|pouvoirMoins${r['o:id']}{le pouvoir diminu}
+                        end
+                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                        `;
+                        estBon.push(`estBon${r['o:id']}`);
+                        fluxMoins.push(`pouvoirMoins${r['o:id']}`);
+                        fluxPlus.push(`pouvoirPlus${r['o:id']}`);
+                        links++;
+                        linkPlus.push(links);
+                        links++;
+                        linkPlus.push(links);
+                        links++;
+                        linkMoins.push(links);
+                        links++;
+                        linkPlus.push(links);
+                        //create fail event
+                        createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirMoins'+r['o:id']+'-->',niv+1);
+                        //create valid event
+                        createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirPlus'+r['o:id']+'-->',niv+1);
+                    }else{
+                        graphCode += `
+                        item${r['o:id']}[${r['o:title']}]
+                        end
+                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                        item${r['o:id']} --> |Pas de flux|rtEnd                                        
                         `;
                         links++;
                         if(startNode.startsWith('pulsations'))linkPlus.push(links);
                         if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
                         if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
-                    }else if(vr.type=="resource" || vr.type=="resource:item"){
-                        //get properties of resource
-                        let r = vr.o ? vr.o : me.omk.getItem(vr.value_resource_id);
+                        links++;
+                        linkMoins.push(links);
+                    } 
+                    */
+
+                    /*ajoute les autres flux
+                    if(r['jdc:jdc:flux']){
                         graphCode += `
-                        subgraph sgItem${r['o:id']}[-]`;
+                        item${r['o:id']}[${r['o:title']}]-->aFlux${r['o:id']}{A d'autre flux ?}
+                        aFlux${r['o:id']}-->|avant|fluxAvant${r['o:id']}{flux avant}
+                        aFlux${r['o:id']}-->|pendant|fluxPendant${r['o:id']}{flux pendant}
+                        aFlux${r['o:id']}-->|après|fluxApres${r['o:id']}{flux après}
+                        end
+                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                        `;
+                        aFlux.push(`aFlux${r['o:id']}`);
+                        fluxAvant.push(`fluxAvant${r['o:id']}`);
+                        fluxPendant.push(`fluxPendant${r['o:id']}`);
+                        fluxApres.push(`fluxApres${r['o:id']}`);
+                        links++;
+                        linkPlus.push(links);
+                        links++;
+                        linkPlus.push(links);
+                        links++;
+                        linkMoins.push(links);
+                        links++;
+                        linkPlus.push(links);
+                        links++;
+                        linkPlus.push(links);
+                        //create fail event
+                        createPulsationSubgraph(r,'jdc:flux','fluxAvant'+r['o:id']+'-->',niv+1);
+                        //create valid event
+                        createPulsationSubgraph(r,'jdc:flux','fluxApres'+r['o:id']+'-->',niv+1);
+                    }else{
+                        graphCode += `
+                        item${r['o:id']}[${r['o:title']}]
+                        end
+                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                        item${r['o:id']} --> |Pas de flux|rtEnd                                        
+                        `;
+                        links++;
+                        if(startNode.startsWith('pulsations'))linkPlus.push(links);
+                        if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
+                        if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
+                        links++;
+                        linkMoins.push(links);
+                    } 
+                    */
 
-                        //ajoute le pouvoirs
-                        if(r['jdc:hasPouvoir']){
-                            graphCode += `
-                            item${r['o:id']}[${r['o:title']}]-->estBon${r['o:id']}{est bon ?}
-                            estBon${r['o:id']}-->|yes|pouvoirPlus${r['o:id']}{le pouvoir augmente}
-                            estBon${r['o:id']}-->|no|pouvoirMoins${r['o:id']}{le pouvoir diminu}
-                            end
-                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                            `;
-                            estBon.push(`estBon${r['o:id']}`);
-                            fluxMoins.push(`pouvoirMoins${r['o:id']}`);
-                            fluxPlus.push(`pouvoirPlus${r['o:id']}`);
-                            links++;
-                            linkPlus.push(links);
-                            links++;
-                            linkPlus.push(links);
-                            links++;
-                            linkMoins.push(links);
-                            links++;
-                            linkPlus.push(links);
-                            //create fail event
-                            createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirMoins'+r['o:id']+'-->',niv+1);
-                            //create valid event
-                            createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirPlus'+r['o:id']+'-->',niv+1);
-                        }else{
-                            graphCode += `
-                            item${r['o:id']}[${r['o:title']}]
-                            end
-                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                            item${r['o:id']} --> |Pas de flux|rtEnd                                        
-                            `;
-                            links++;
-                            if(startNode.startsWith('pulsations'))linkPlus.push(links);
-                            if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
-                            if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
-                            links++;
-                            linkMoins.push(links);
-                        } 
- 
+                }
+            })
+            graphCode += `
+                item${rs[rs.length-1].o['o:id']}-->|plus de flux|rtEnd                                       
+            `;
 
-                        /*ajoute les autres flux
-                        if(r['jdc:jdc:flux']){
-                            graphCode += `
-                            item${r['o:id']}[${r['o:title']}]-->aFlux${r['o:id']}{A d'autre flux ?}
-                            aFlux${r['o:id']}-->|avant|fluxAvant${r['o:id']}{flux avant}
-                            aFlux${r['o:id']}-->|pendant|fluxPendant${r['o:id']}{flux pendant}
-                            aFlux${r['o:id']}-->|après|fluxApres${r['o:id']}{flux après}
-                            end
-                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                            `;
-                            aFlux.push(`aFlux${r['o:id']}`);
-                            fluxAvant.push(`fluxAvant${r['o:id']}`);
-                            fluxPendant.push(`fluxPendant${r['o:id']}`);
-                            fluxApres.push(`fluxApres${r['o:id']}`);
-                            links++;
-                            linkPlus.push(links);
-                            links++;
-                            linkPlus.push(links);
-                            links++;
-                            linkMoins.push(links);
-                            links++;
-                            linkPlus.push(links);
-                            links++;
-                            linkPlus.push(links);
-                            //create fail event
-                            createPulsationSubgraph(r,'jdc:flux','fluxAvant'+r['o:id']+'-->',niv+1);
-                            //create valid event
-                            createPulsationSubgraph(r,'jdc:flux','fluxApres'+r['o:id']+'-->',niv+1);
-                        }else{
-                            graphCode += `
-                            item${r['o:id']}[${r['o:title']}]
-                            end
-                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                            item${r['o:id']} --> |Pas de flux|rtEnd                                        
-                            `;
-                            links++;
-                            if(startNode.startsWith('pulsations'))linkPlus.push(links);
-                            if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
-                            if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
-                            links++;
-                            linkMoins.push(links);
-                        } 
-                        */
-
-                    }
-                })
-            }else{
-                //go to end event
-                graphCode += `
-                    ${startNode} rtEnd
-                    `;
-                links++;
-                linkPlus.push(links);
-            }
         }
 
         this.init();
