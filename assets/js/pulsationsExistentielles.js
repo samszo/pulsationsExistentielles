@@ -5,6 +5,7 @@ import * as hl from './hex-lib.js';
 import * as ha from './hex-algorithms.js';
 import {loader} from './loader.js';
 import {Treeselect} from './treeselectjs.mjs.js'
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
 
 
 export class pulsationsExistentielles {
@@ -55,11 +56,15 @@ export class pulsationsExistentielles {
                 'w':[63,151]
             },
             bbCribleD,bbCribleG,bbRaisonner,bbDicerner,bbAgir,extPathPoints,
-            layoutBase, allHexa, polygonVerticesFlat;
+            layoutBase, allHexa, polygonVerticesFlat,
+            graph, graphCode, 
+            fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],links=[],items=[],
+            aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[];
 
 
         this.init = function () {
             console.log('init rt');
+            mermaid.initialize({ startOnLoad: false,theme: 'dark', });
 
             layoutBase = me.ch.setLayout();
             allHexa = ha.makeHexagonalShape(1);
@@ -134,14 +139,13 @@ export class pulsationsExistentielles {
                         me.showItemSelect(e.detail);
                     })
                     if(me.events.endInit)me.events.endInit();
-                    me.loader.hide(true);
                 });
             });
 
             //chargement du modèle à animer
             d3.svg(me.urlSvg).then(xml=>{
                 me.cont.node().appendChild(xml.documentElement);
-                me.svg = d3.select("#svg1");
+                me.svg = me.cont.select("#svg1");
                 bbScene = me.svg.select('#scene_1').node().getBBox();
                 //affiche le graphique dans toute la div
                 me.svg.attr("preserveAspectRatio","xMidYMid meet")		
@@ -212,7 +216,9 @@ export class pulsationsExistentielles {
                     me.infosRT.select("#titreRT").text(me.rt[0].o['o:title']);
                     me.showRaisonTrajective();
                 }else{
+                    me.loader.hide(true);
                     me.infosRT.select("#titreRT").text(me.rt[0].o.name);
+                    me.svg.style('display','block');
                     me.playRaisonTrajective(null, me.rt[0].o);
                 }  
            }else{
@@ -221,8 +227,7 @@ export class pulsationsExistentielles {
 
         }
 
-        this.showRaisonTrajective=function(){
-            let erreurs = [];
+        this.showRaisonTrajective=function(){            
             me.loader.show();
             console.log(me.rt[0].o);
             if(me.rt[0].o["dcterms:description"])me.infosRT.select("#descRT").text(me.rt[0].o["dcterms:description"][0]["@value"]);
@@ -232,29 +237,35 @@ export class pulsationsExistentielles {
                 .style("height","20px");
             //récupère le propriétaire
             me.omk.getOwner(me.rt[0].o["o:owner"]["o:id"]).then(data => {
+                me.rt[0].o.owner=data;
                 me.infosRT.select("#auteurRT").text(data['o:name'])
                     .append("span").text(" ("+me.rt[0].o["o:modified"]["@value"].split("T")[0]+")");
-
+                showPulsationsExistentielles(me.rt[0].o,"jdc:hasPulsationExistentielle",me.infosRT.select("#detailsPulEx"));
             });
-            if(me.rt[0].o["jdc:hasPulsationExistentielle"]){
+        }
+
+        function showPulsationsExistentielles(oSource, prop, contPE, flux=false){
+            let erreurs = [], rsPE = oSource[prop];
+            if(rsPE){
                 //ordonne les pulsation par ordre dans le flux
-                let pulExFlux = me.rt[0].o["jdc:hasPulsationExistentielle"].filter(p=>{
-                        if(p["@annotation"] && p["@annotation"]["jdc:flux"])return true
+                let pulExFlux = rsPE.filter(p=>{
+                        if(p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"])return true
                         else{
-                            erreurs.push({'message':"Dans la raison trajective :"
-                                +"<p class='fw-bold'>"+me.rt[0].o["o:title"]+"</p>"
-                                +"L'ordre de la pulsation existentielle :"
+                            erreurs.push({'message':"Dans la "+(flux ? "pulsation existentielle" : "raison trajective")+" :"
+                                +"<p class='fw-bold'>"+oSource["o:title"]+"</p>"
+                                +(flux ? "la temporalité du flux" : "L'ordre de la pulsation existentielle :")
                                 +"<p class='fw-bold'>"+p.display_title+"</p>"
-                                +"n'est pas précisé.",'link': me.omk.getAdminLink(null,me.rt[0].o["o:id"],"o:Item")});                            
+                                +(flux ? "n'est pas définie." : "n'est pas précisé.")
+                                ,'link': me.omk.getAdminLink(null,oSource["o:id"],"o:Item")});                            
                             return false
                         }
                     }),
-                    pulEx = pulExFlux.sort((a, b) => a["@annotation"]["jdc:flux"][0]["@value"] - b["@annotation"]["jdc:flux"][0]["@value"]),
+                    pulEx = pulExFlux.sort((a, b) => a["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"][0]["@value"] - b["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"][0]["@value"]),
                 //création des pulsations
-                    liPE = me.infosRT.select("#detailsPulEx").selectAll('li').data(pulEx)
+                    liPE = contPE.selectAll('li').data(pulEx)
                     .enter().append('li')
                         .attr('id',p=>"pe"+p.value_resource_id)
-                        .attr("class","list-group-item"),
+                        .attr("class","list-group-item  mt-2"),
                     divPE = liPE.append('div').attr('class','d-flex align-items-start justify-content-between');
                 divPE.append('div')
                     .attr("class","ms-2 me-auto")
@@ -264,16 +275,19 @@ export class pulsationsExistentielles {
                 divPE.append('span')
                     .attr("class",p=>{
                         let cl = "badge text-bg-";
-                        cl += p["@annotation"] && p["@annotation"]["jdc:flux"] ? "success" : "danger";
+                        cl += p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"] ? "success" : "danger";
                         cl += " rounded-pill";
                         return cl;
                         }) 
                     .text(p=>{
-                        if(p["@annotation"] && p["@annotation"]["jdc:flux"])return p["@annotation"]["jdc:flux"][0]["@value"]
+                        if(p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"])
+                            return p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"][0][flux ? "display_title" : "@value"]
                         else{
                             erreurs.push({'message':"Dans la pulsation existentielle :"
                                 +"<p class='fw-bold'>"+p.display_title+"</p>"
-                                +"L'ordre du flux n'est pas précisé.",'link': me.omk.getAdminLink(null,p.value_resource_id,"o:Item")});                            
+                                +(flux ? "la temporalité du flux" : "L'ordre de la pulsation existentielle :")
+                                +(flux ? "n'est pas définie." : "n'est pas précisé.")
+                                ,'link': me.omk.getAdminLink(null,p.value_resource_id,"o:Item")});                            
                             return "?"
                         } 
                     });
@@ -289,15 +303,18 @@ export class pulsationsExistentielles {
                 //création des pouvoirs
                 let divPePo = liPE.append('div')
                     .attr("class","row"),
-                    liPouv = divPePo.append('ul').attr("class","list-group").selectAll('li').data(p=>{
-                        let pe = me.omk.getItem(p.value_resource_id), pouvoirs = [];
-                        if(pe["jdc:hasPouvoir"]){
-                            pe["jdc:hasPouvoir"].forEach(p=>{
-                                if(p.value_resource_id)pouvoirs.push({'pe':pe,'po':me.omk.getItem(p.value_resource_id)});
-                                else erreurs.push({'message':"Dans la pulsation existentielle :<br>"
-                                        +pe['o:title']+"<br>"
+                    liPouv = divPePo.append('ul').attr("class","list-group").selectAll('li').data(pe=>{
+                        pe.o = me.omk.getItem(pe.value_resource_id)
+                        let pouvoirs = [];
+                        if(pe.o["jdc:hasPouvoir"]){
+                            pe.o["jdc:hasPouvoir"].forEach(po=>{
+                                if(po.value_resource_id){
+                                    po.o = me.omk.getItem(po.value_resource_id);
+                                    pouvoirs.push({'pe':pe,'po':po.o});
+                                }else erreurs.push({'message':"Dans la pulsation existentielle :<br>"
+                                        +pe.o['o:title']+"<br>"
                                         +"Le pouvoir :<br>"
-                                        +p["@value"]+" : n'est pas un item.",'link': me.omk.getAdminLink(null,pe['o:id'],"o:Item")});
+                                        +po["@value"]+" : n'est pas un item.",'link': me.omk.getAdminLink(null,pe.o['o:id'],"o:Item")});
                             });
                         }
                         return pouvoirs;
@@ -334,12 +351,20 @@ export class pulsationsExistentielles {
                     }).attr('target',"_blank")
                     .append('img').attr('src','assets/img/OmekaS.png')
                         .style("margin-top","-4px")
-                        .style("height","20px");                
+                        .style("height","20px");
+                        
+                //création des flux associés
+                let divPeFlux = liPE.append('div')
+                    .attr("class","row")                    
+                    .append('ul').attr("id",p=>"fluxPE"+p.value_resource_id).attr("class","list-group mt-1 ms-3");
+                divPeFlux.each((p,i)=>{
+                    if(!flux)showPulsationsExistentielles(p.o,"jdc:flux",d3.select("#fluxPE"+p.value_resource_id),true);
+                });
             }else{
-                me.infosRT.select("#detailsPulEx").append('li').text('Pas de pulsations existentielles');
+                contPE.append('li').text('Pas de pulsations existentielles');
             }
             if(erreurs.length>0){
-                me.infosRT.select("#detailsPulEx").append('li').attr("class","list-group-item").append('ul').attr("class","list-group").selectAll('li').data(erreurs)
+                contPE.append('li').attr("class","list-group-item").append('ul').attr("class","list-group").selectAll('li').data(erreurs)
                     .enter().append('li')
                         .attr("class","list-group-item list-group-item-danger")
                         .html(e=>e.message)
@@ -350,11 +375,10 @@ export class pulsationsExistentielles {
                             .style("height","20px");
 
             }
-
-            //regroupe les pulsations par ordre de flux
-            //d3.group(me.rt[0].o["jdc:hasPulsationExistentielle"], d => d["@annotation"]["jdc:flux"][0]["@value"]);
+            me.createDiagram();
             me.loader.hide(true);
         }
+
 
         function purgeIHM(){
             me.rt=[];
@@ -365,6 +389,7 @@ export class pulsationsExistentielles {
             me.infosRT.select("#titreRT").text("Veuillez sélectionner une raison trajective");
             me.infosRT.select("#auteurRT").text("");
             me.infosRT.select("#descRT").text("");
+            clearMermaid();
         }
 
         this.playRaisonTrajective=function(nom, s){
@@ -896,6 +921,203 @@ export class pulsationsExistentielles {
             //retourne au centre
             ap.push([0,0]); 
             return ap;           
+        }
+
+
+        function clearMermaid(){
+            me.svg.style('display','none');
+            me.cont.selectAll('pre').remove();
+            me.cont.selectAll('div').remove();
+            graph = me.cont
+                .append('pre').attr('id','mermaidGraph').attr("class","mermaid");
+        }
+
+        this.createDiagram = async function(){
+            fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],links=[],items=[],
+            aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[];
+            clearMermaid();
+            let niv = 0;
+            graphCode = `
+            %%{
+                init: {
+                  'theme': 'black',
+                  'themeVariables': {
+                    'edgeLabelBackground':'white'
+                  }
+                }
+            }%%
+            flowchart TD`;
+            //create raison trajective
+            if(me.rt[0].o['o:title']){
+                graphCode += `
+                    raisonTrajective[${me.rt[0].o['o:title']}]-->pulsations{Pulsations existentielles};
+                    rtEnd[Fin du flux]`;
+                //create flow for each pulsation existentielles
+                createPulsationSubgraph(me.rt[0].o,"jdc:hasPulsationExistentielle",'pulsations -->',niv);
+            }else{
+                graphCode += `
+                    raisonTrajective[Start] -->pulsations{Pas de pulsations existentielles};
+                    pulsations --> rtEnd[Fin du flux]
+                    `;
+            }
+
+            graphCode += `
+            classDef StartEnd fill:green,stroke:white,stroke-width:8px
+            classDef fluxPlus fill:green,stroke:green,stroke-width:4px
+            classDef fluxMoins fill:red,stroke:red,stroke-width:4px,color:white
+            classDef estBon fill:orange,stroke:orange,stroke-width:8px,color:black
+            
+            class raisonTrajective,rtEnd,pulsations StartEnd;
+            `;
+            if(fluxPlus.length)graphCode+= `class ${fluxPlus.join(',')} fluxPlus;
+            `;
+            if(fluxMoins.length)graphCode+= `class ${fluxMoins.join(',')} fluxMoins;
+            `;
+            if(estBon.length)graphCode+= `class ${estBon.join(',')} estBon;
+            `;
+            if(linkPlus.length)graphCode+= `linkStyle ${linkPlus.join(',')} stroke:green,color:green,stroke-width:4px,color:green
+            `;
+            if(linkMoins.length)graphCode+= `linkStyle ${linkMoins.join(',')} stroke:red,color:red
+            `;
+
+            //render graphCode
+            console.log(graphCode);        
+            graph.html(graphCode);
+            await mermaid.run({
+                querySelector: '#mermaidGraph',
+                postRenderCallback: (id) => {
+                    const container = document.getElementById("mermaidGraph");
+                    const svgElement = container.querySelector("svg");
+            
+                    // Initialize Panzoom
+                    const panzoomInstance = Panzoom(svgElement, {
+                        maxScale: 5,
+                        minScale: 0.5,
+                        step: 0.1,
+                    });
+            
+                    // Add mouse wheel zoom
+                    container.addEventListener("wheel", (event) => {
+                        panzoomInstance.zoomWithWheel(event);
+                    });
+                }
+              });
+        }
+
+        //create event subgraph
+        function createPulsationSubgraph(d,p,startNode,niv){
+            let op = me.omk.getPropByTerm(p);            
+            if(d[p]){
+                d[p].forEach((vr,j)=>{
+                    //check if node exist
+                    if(items[vr.value_resource_id]){
+                        graphCode += `
+                        ${startNode} |${op['o:label']}|item${vr.value_resource_id}                                        
+                        `;
+                        links++;
+                        if(startNode.startsWith('pulsations'))linkPlus.push(links);
+                        if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
+                        if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
+                    }else if(vr.type=="resource" || vr.type=="resource:item"){
+                        //get properties of resource
+                        let r = vr.o ? vr.o : me.omk.getItem(vr.value_resource_id);
+                        graphCode += `
+                        subgraph sgItem${r['o:id']}[-]`;
+
+                        //ajoute le pouvoirs
+                        if(r['jdc:hasPouvoir']){
+                            graphCode += `
+                            item${r['o:id']}[${r['o:title']}]-->estBon${r['o:id']}{est bon ?}
+                            estBon${r['o:id']}-->|yes|pouvoirPlus${r['o:id']}{le pouvoir augmente}
+                            estBon${r['o:id']}-->|no|pouvoirMoins${r['o:id']}{le pouvoir diminu}
+                            end
+                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                            `;
+                            estBon.push(`estBon${r['o:id']}`);
+                            fluxMoins.push(`pouvoirMoins${r['o:id']}`);
+                            fluxPlus.push(`pouvoirPlus${r['o:id']}`);
+                            links++;
+                            linkPlus.push(links);
+                            links++;
+                            linkPlus.push(links);
+                            links++;
+                            linkMoins.push(links);
+                            links++;
+                            linkPlus.push(links);
+                            //create fail event
+                            createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirMoins'+r['o:id']+'-->',niv+1);
+                            //create valid event
+                            createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirPlus'+r['o:id']+'-->',niv+1);
+                        }else{
+                            graphCode += `
+                            item${r['o:id']}[${r['o:title']}]
+                            end
+                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                            item${r['o:id']} --> |Pas de flux|rtEnd                                        
+                            `;
+                            links++;
+                            if(startNode.startsWith('pulsations'))linkPlus.push(links);
+                            if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
+                            if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
+                            links++;
+                            linkMoins.push(links);
+                        } 
+ 
+
+                        /*ajoute les autres flux
+                        if(r['jdc:jdc:flux']){
+                            graphCode += `
+                            item${r['o:id']}[${r['o:title']}]-->aFlux${r['o:id']}{A d'autre flux ?}
+                            aFlux${r['o:id']}-->|avant|fluxAvant${r['o:id']}{flux avant}
+                            aFlux${r['o:id']}-->|pendant|fluxPendant${r['o:id']}{flux pendant}
+                            aFlux${r['o:id']}-->|après|fluxApres${r['o:id']}{flux après}
+                            end
+                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                            `;
+                            aFlux.push(`aFlux${r['o:id']}`);
+                            fluxAvant.push(`fluxAvant${r['o:id']}`);
+                            fluxPendant.push(`fluxPendant${r['o:id']}`);
+                            fluxApres.push(`fluxApres${r['o:id']}`);
+                            links++;
+                            linkPlus.push(links);
+                            links++;
+                            linkPlus.push(links);
+                            links++;
+                            linkMoins.push(links);
+                            links++;
+                            linkPlus.push(links);
+                            links++;
+                            linkPlus.push(links);
+                            //create fail event
+                            createPulsationSubgraph(r,'jdc:flux','fluxAvant'+r['o:id']+'-->',niv+1);
+                            //create valid event
+                            createPulsationSubgraph(r,'jdc:flux','fluxApres'+r['o:id']+'-->',niv+1);
+                        }else{
+                            graphCode += `
+                            item${r['o:id']}[${r['o:title']}]
+                            end
+                            ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                            item${r['o:id']} --> |Pas de flux|rtEnd                                        
+                            `;
+                            links++;
+                            if(startNode.startsWith('pulsations'))linkPlus.push(links);
+                            if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
+                            if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
+                            links++;
+                            linkMoins.push(links);
+                        } 
+                        */
+
+                    }
+                })
+            }else{
+                //go to end event
+                graphCode += `
+                    ${startNode} rtEnd
+                    `;
+                links++;
+                linkPlus.push(links);
+            }
         }
 
         this.init();
