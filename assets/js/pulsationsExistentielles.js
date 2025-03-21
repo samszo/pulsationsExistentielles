@@ -6,6 +6,7 @@ import * as ha from './hex-algorithms.js';
 import {loader} from './loader.js';
 import {Treeselect} from './treeselectjs.mjs.js'
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+import {posiColor} from './posiColor.js';
 
 
 export class pulsationsExistentielles {
@@ -33,6 +34,7 @@ export class pulsationsExistentielles {
         this.ch = new cartoHexa({'noInit':true});
         this.raisonstrajectives=[],
         this.rt=false;
+        this.posCol=false;
         let pa, slot, treeselect, 
             bbScene, maxloop = 4, numloop = 0, flux = [], 
             dur = 100, durMin = 500, durMax = 10000,
@@ -198,6 +200,21 @@ export class pulsationsExistentielles {
             }
         }
 
+        function initPosiColor(){
+            //calcul les intervales d'intensité
+            me.posCol = new posiColor({'data':dataFreq,'cont':d3.select('#contentTots')
+                //,'pVal':'maxCpx','pLib':'dim', 'frequency':false
+                , 'pVal':'cpx','pLib':'dim', 'pFreq':'nbCpx','frequency':true
+                , 'interpolates':{
+                    'Existence':d3.interpolateViridis,
+                    'Physique':d3.interpolatePlasma,
+                    'Actant':d3.interpolatePlasma,
+                    'Concept':d3.interpolatePlasma,
+                    'Rapport':d3.interpolateYlOrRd
+                }
+                ,'width':rectAccordion.width,'height':400});            
+        }
+
         this.showItemSelect=function(id){
             purgeIHM();
 
@@ -228,8 +245,12 @@ export class pulsationsExistentielles {
         }
 
         this.showRaisonTrajective=function(){            
-            me.loader.show();
+            me.loader.show();            
             console.log(me.rt[0].o);
+
+            //TODO:définir le range par rapport aux intensités de la raison trajective
+            me.posCol = d3.scaleSequential([-100,100], d3.interpolateViridis);
+                        
             if(me.rt[0].o["dcterms:description"])me.infosRT.select("#descRT").text(me.rt[0].o["dcterms:description"][0]["@value"]);
             me.infosRT.select("#titreRT").append('a').attr('href',me.omk.getAdminLink(null,me.rt[0].o["o:id"],"o:Item")).attr('target',"_blank")
             .append('img').attr('src','assets/img/OmekaS.png')
@@ -352,7 +373,40 @@ export class pulsationsExistentielles {
                     .append('img').attr('src','assets/img/OmekaS.png')
                         .style("margin-top","-4px")
                         .style("height","20px");
-                        
+                //ajoute l'intensité du pouvoir
+                divPouv.append('div')
+                    .attr("class","d-flex justify-content-center")
+                    .style("height","3px")
+                    .style("background-color",p=>{
+                        if(p.po["jdc:intensite"])return me.posCol(parseInt(p.po["jdc:intensite"][0]["@value"]));
+                        else{
+                            erreurs.push({'message':"Dans la pulsation existentielle :"
+                                +"<p class='fw-bold'>"+p.pe["o:title"]+"</p>"
+                                +"L'intensité du pouvoir de :"
+                                +"<p class='fw-bold'>"+p.po["o:title"]+"</p>"
+                                +"n'est pas précisée.",'link': me.omk.getAdminLink(null,p.po["o:id"],"o:Item")});                            
+                            return "black";
+                        } 
+
+                    }) 
+                /*ajoute les acteurs du pouvoir
+                divPouv.append('div')
+                    .attr("class","d-flex justify-content-center")
+                    .style("height","3px")
+                    .style("background-color",p=>{
+                        if(p.po["jdc:intensite"])return me.posCol(parseInt(p.po["jdc:intensite"][0]["@value"]));
+                        else{
+                            erreurs.push({'message':"Dans la pulsation existentielle :"
+                                +"<p class='fw-bold'>"+p.pe["o:title"]+"</p>"
+                                +"L'intensité du pouvoir de :"
+                                +"<p class='fw-bold'>"+p.po["o:title"]+"</p>"
+                                +"n'est pas précisée.",'link': me.omk.getAdminLink(null,p.po["o:id"],"o:Item")});                            
+                            return "black";
+                        } 
+
+                    })   
+                */
+                                     
                 //création des flux associés
                 let divPeFlux = liPE.append('div')
                     .attr("class","row")                    
