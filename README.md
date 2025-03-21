@@ -21,13 +21,12 @@ Ne pas oublier de définir l'intensité du pouvoir entre :
 - 0 = pas de changement
 - 100 = augmentation extrême du pouvoir
 
-Il y a quatre types de pouvoir existentiel :
-- Pouvoir de discerner : physique -> actant -> concept
+Il y a quatre types de pouvoir existentiel ayant chaucun des propriétés particulières :
+- Pouvoir de discerner : physique -> crible -> actant -> concept
 - Pouvoir de raisonner : concept -> actant -> concept
 - Pouvoir de résonner : concept -> actant -> concept
-- Pouvoir d'agir : concept -> actant -> physique
+- Pouvoir d'agir : concept -> actant -> crible -> physique
 
-Pour chaque pouvoir existentiel, vous pouvez définir un crible qui fait évoluer l'intensité du pouvoir.
 
 ### Associer les pouvoirs existentielles aux pulsations existentielles
 Dans omk, dans l'item Pulsation existentielle, ajouter les items Pouvoir existentiel
