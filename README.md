@@ -15,10 +15,19 @@ Ne pas oublier de mettre en relation la pulsation créer avec d'autres pulsation
 
 ### Créer les pouvoirs existentielles
 Dans omk créer un item en utilisant le ressource template : Pouvoir existentiel
+
 Ne pas oublier de définir l'intensité du pouvoir entre :
 - -100 = diminution extrême du pouvoir
 - 0 = pas de changement
 - 100 = augmentation extrême du pouvoir
+
+Il y a quatre types de pouvoir existentiel :
+- Pouvoir de discerner : physique -> actant -> concept
+- Pouvoir de raisonner : concept -> actant -> concept
+- Pouvoir de résonner : concept -> actant -> concept
+- Pouvoir d'agir : concept -> actant -> physique
+
+Pour chaque pouvoir existentiel, vous pouvez définir un crible qui fait évoluer l'intensité du pouvoir.
 
 ### Associer les pouvoirs existentielles aux pulsations existentielles
 Dans omk, dans l'item Pulsation existentielle, ajouter les items Pouvoir existentiel

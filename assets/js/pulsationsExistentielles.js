@@ -112,35 +112,63 @@ export class pulsationsExistentielles {
             }            
             //Chargment des sources                
             d3.json(me.sources).then(data => {
-                let options=data, jsonS=[];
+                let options=data, jsonS=[],optUrl = [];
                 data.forEach((s,i) => {
-                    if(s.url)jsonS.push(d3.json(s.url));
+                    if(s.url){
+                        jsonS.push(d3.json(s.url))
+                        optUrl.push(i);
+                    };
                     if(s.children){
                         s.children.forEach(c=>{
                             me.raisonstrajectives.push({'id':c.value,'o':c,'pulsations':[]});
                         });
                     }
                 });
-                Promise.all(jsonS).then((values) => {
-                    values.forEach((dataStory,j)=>{
-                        dataStory.forEach(ds=>{
-                            let id = 's_'+j+'c'+ds['o:id'];
-                            options[j].children.push({name: ds['o:title'],value:id,children: []}); 
-                            me.raisonstrajectives.push({'id':id,'o':ds,'pulsations':[]});
+                Promise.all(jsonS).then((valuesOmk) => {
+                    let jsonOwner=[], optUrlRT = [];
+                    valuesOmk.forEach((optionData,j)=>{
+                        optionData.forEach(ds=>{
+                            //récupère le propriétaire
+                            jsonOwner.push(me.omk.getOwner(ds["o:owner"]["o:id"]));
                         })
                     });
-                    treeselect = new Treeselect({
-                        parentHtmlContainer: me.tree.node(),
-                        value: [],
-                        isSingleSelect: true,
-                        options: options,
-                        listSlotHtmlComponent: slot
-                    })
-                    treeselect.srcElement.addEventListener('input', (e) => {
-                        console.log('Selected value:', e.detail);
-                        me.showItemSelect(e.detail);
-                    })
-                    if(me.events.endInit)me.events.endInit();
+                    Promise.all(jsonOwner).then((valuesOwner) => {
+                        valuesOmk.forEach((optionData,j)=>{
+                            optionData.forEach(ds=>{
+                                ds.owner=valuesOwner.shift();
+                                optUrlRT.push({'source':optUrl[j],'owner':ds.owner['o:name'],'o':ds});
+                            });
+                        });
+    
+                        //regroupe les raisons par sources et owner
+                        let sourcesOwnersRT = d3.group(optUrlRT, rt => rt.source, rt => rt.owner);
+                        //création des options pour le treeselect
+                        sourcesOwnersRT.forEach((owners,source)=>{
+                            let numOwner = 0;
+                            owners.forEach((rt,owner)=>{
+                                let childs = [];
+                                rt.forEach(ds=>{
+                                    let id = 'omk_'+source+'_'+numOwner+'c'+ds.o['o:id'];
+                                    me.raisonstrajectives.push({'id':id,'o':ds.o,'pulsations':[]});            
+                                    childs.push({name: ds.o['o:title'],value:id,children: []});
+                                });
+                                options[source].children.push({name: owner,value:'owner_'+numOwner,children: childs}); 
+                                numOwner++;
+                            });
+                        });
+                        treeselect = new Treeselect({
+                            parentHtmlContainer: me.tree.node(),
+                            value: [],
+                            isSingleSelect: true,
+                            options: options,
+                            listSlotHtmlComponent: slot
+                        })
+                        treeselect.srcElement.addEventListener('input', (e) => {
+                            console.log('Selected value:', e.detail);
+                            me.showItemSelect(e.detail);
+                        })
+                        if(me.events.endInit)me.events.endInit();
+                    });
                 });
             });
 
@@ -256,13 +284,9 @@ export class pulsationsExistentielles {
             .append('img').attr('src','assets/img/OmekaS.png')
                 .attr('class','mx-2')
                 .style("height","20px");
-            //récupère le propriétaire
-            me.omk.getOwner(me.rt[0].o["o:owner"]["o:id"]).then(data => {
-                me.rt[0].o.owner=data;
-                me.infosRT.select("#auteurRT").text(data['o:name'])
-                    .append("span").text(" ("+me.rt[0].o["o:modified"]["@value"].split("T")[0]+")");
-                showPulsationsExistentielles(me.rt[0].o,"jdc:hasPulsationExistentielle",me.infosRT.select("#detailsPulEx"));
-            });
+            me.infosRT.select("#auteurRT").text(me.rt[0].o.owner['o:name'])
+                .append("span").text(" ("+me.rt[0].o["o:modified"]["@value"].split("T")[0]+")");
+            showPulsationsExistentielles(me.rt[0].o,"jdc:hasPulsationExistentielle",me.infosRT.select("#detailsPulEx"));
         }
 
         function showPulsationsExistentielles(oSource, prop, contPE, flux=false){
