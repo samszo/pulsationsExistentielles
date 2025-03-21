@@ -249,7 +249,7 @@ export class pulsationsExistentielles {
             console.log(me.rt[0].o);
 
             //TODO:définir le range par rapport aux intensités de la raison trajective
-            me.posCol = d3.scaleSequential([-100,100], d3.interpolateViridis);
+            me.posCol = d3.scaleSequential([-100,100], d3.interpolateTurbo);
                         
             if(me.rt[0].o["dcterms:description"])me.infosRT.select("#descRT").text(me.rt[0].o["dcterms:description"][0]["@value"]);
             me.infosRT.select("#titreRT").append('a').attr('href',me.omk.getAdminLink(null,me.rt[0].o["o:id"],"o:Item")).attr('target',"_blank")
@@ -406,7 +406,7 @@ export class pulsationsExistentielles {
 
                     })   
                 */
-                                     
+
                 //création des flux associés
                 let divPeFlux = liPE.append('div')
                     .attr("class","row")                    
@@ -1002,7 +1002,7 @@ export class pulsationsExistentielles {
             }%%
             flowchart TD`;
             //create raison trajective
-            if(me.rt[0].o['o:title']){
+            if(me.rt[0].o['o:title'] && me.rt[0].o["jdc:hasPulsationExistentielle"]){
                 graphCode += `
                     raisonTrajective[${me.rt[0].o['o:title']}];
                     rtEnd[Fin du flux]`;
