@@ -61,8 +61,8 @@ export class pulsationsExistentielles {
             layoutBase, allHexa, polygonVerticesFlat,
             graph, graphCode, 
             fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],links=[],items=[],
-            aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[];
-
+            aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[],
+            nivFluxMax=10, minIntensite=0, maxIntensite=1;
 
         this.init = function () {
             console.log('init rt');
@@ -82,6 +82,7 @@ export class pulsationsExistentielles {
                 me.infosRT.append("p").attr("class","lead").attr('id',"auteurRT");
                 me.infosRT.append("p").attr('class',"text-start fw-lighter").attr('id',"descRT");
                 me.infosRT.append("h5").text("Détails des pulsations existentielles");
+                me.infosRT.append("div").attr('id',"legendeRT");
                 me.infosRT.append("ol").attr('id',"detailsPulEx").attr("class","list-group");
             }
             //création des éléments de navigation
@@ -148,7 +149,7 @@ export class pulsationsExistentielles {
                             owners.forEach((rt,owner)=>{
                                 let childs = [];
                                 rt.forEach(ds=>{
-                                    let id = 'omk_'+source+'_'+numOwner+'c'+ds.o['o:id'];
+                                    let id = 'omk_'+ds.o['o:id'];
                                     me.raisonstrajectives.push({'id':id,'o':ds.o,'pulsations':[]});            
                                     childs.push({name: ds.o['o:title'],value:id,children: []});
                                 });
@@ -228,19 +229,13 @@ export class pulsationsExistentielles {
             }
         }
 
-        function initPosiColor(){
+        function initPosiColor(min, max){
             //calcul les intervales d'intensité
-            me.posCol = new posiColor({'data':dataFreq,'cont':d3.select('#contentTots')
-                //,'pVal':'maxCpx','pLib':'dim', 'frequency':false
-                , 'pVal':'cpx','pLib':'dim', 'pFreq':'nbCpx','frequency':true
-                , 'interpolates':{
-                    'Existence':d3.interpolateViridis,
-                    'Physique':d3.interpolatePlasma,
-                    'Actant':d3.interpolatePlasma,
-                    'Concept':d3.interpolatePlasma,
-                    'Rapport':d3.interpolateYlOrRd
-                }
-                ,'width':rectAccordion.width,'height':400});            
+            me.posCol = new posiColor({'data':[{'lib':'intensité','valMin':min,'valMax':max}],'cont':me.infosRT.select("#legendeRT")
+                ,'pVal':'valMax','pValMin':'valMin','pLib':'lib', 'frequency':false
+                ,'color':d3.interpolateTurbo
+                ,'width':me.infosRT.select("#legendeRT").node().getBoundingClientRect().width
+                ,'height':60});          
         }
 
         this.showItemSelect=function(id){
@@ -275,9 +270,6 @@ export class pulsationsExistentielles {
         this.showRaisonTrajective=function(){            
             me.loader.show();            
             console.log(me.rt[0].o);
-
-            //TODO:définir le range par rapport aux intensités de la raison trajective
-            me.posCol = d3.scaleSequential([-100,100], d3.interpolateTurbo);
                         
             if(me.rt[0].o["dcterms:description"])me.infosRT.select("#descRT").text(me.rt[0].o["dcterms:description"][0]["@value"]);
             me.infosRT.select("#titreRT").append('a').attr('href',me.omk.getAdminLink(null,me.rt[0].o["o:id"],"o:Item")).attr('target',"_blank")
@@ -289,23 +281,23 @@ export class pulsationsExistentielles {
             showPulsationsExistentielles(me.rt[0].o,"jdc:hasPulsationExistentielle",me.infosRT.select("#detailsPulEx"));
         }
 
-        function showPulsationsExistentielles(oSource, prop, contPE, flux=false){
+        function showPulsationsExistentielles(oSource, prop, contPE, nivFlux=0){
             let erreurs = [], rsPE = oSource[prop];
             if(rsPE){
                 //ordonne les pulsations par ordre dans le flux
                 let pulExFlux = rsPE.filter(p=>{
-                        if(p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"])return true
+                        if(p["@annotation"] && p["@annotation"][nivFlux ? "dcterms:temporal" : "jdc:flux"])return true
                         else{
-                            erreurs.push({'message':"Dans la "+(flux ? "pulsation existentielle" : "raison trajective")+" :"
+                            erreurs.push({'message':"Dans la "+(nivFlux ? "pulsation existentielle" : "raison trajective")+" :"
                                 +"<p class='fw-bold'>"+oSource["o:title"]+"</p>"
-                                +(flux ? "la temporalité du flux" : "L'ordre de la pulsation existentielle :")
+                                +(nivFlux ? "la temporalité du flux" : "L'ordre de la pulsation existentielle :")
                                 +"<p class='fw-bold'>"+p.display_title+"</p>"
-                                +(flux ? "n'est pas définie." : "n'est pas précisé.")
+                                +(nivFlux ? "n'est pas définie." : "n'est pas précisé.")
                                 ,'link': me.omk.getAdminLink(null,oSource["o:id"],"o:Item")});                            
                             return false
                         }
                     }),
-                    pulEx = pulExFlux.sort((a, b) => a["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"][0]["@value"] - b["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"][0]["@value"]),
+                    pulEx = pulExFlux.sort((a, b) => a["@annotation"][nivFlux ? "dcterms:temporal" : "jdc:flux"][0]["@value"] - b["@annotation"][nivFlux ? "dcterms:temporal" : "jdc:flux"][0]["@value"]),
                 //création des pulsations
                     liPE = contPE.selectAll('li').data(pulEx)
                     .enter().append('li')
@@ -320,18 +312,18 @@ export class pulsationsExistentielles {
                 divPE.append('span')
                     .attr("class",p=>{
                         let cl = "badge text-bg-";
-                        cl += p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"] ? "success" : "danger";
+                        cl += p["@annotation"] && p["@annotation"][nivFlux ? "dcterms:temporal" : "jdc:flux"] ? "success" : "danger";
                         cl += " rounded-pill";
                         return cl;
                         }) 
                     .text(p=>{
-                        if(p["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"])
-                            return p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"][0][flux ? "display_title" : "@value"]
+                        if(p["@annotation"] && p["@annotation"][nivFlux ? "dcterms:temporal" : "jdc:flux"])
+                            return p["@annotation"][nivFlux ? "dcterms:temporal" : "jdc:flux"][0][nivFlux ? "display_title" : "@value"]
                         else{
                             erreurs.push({'message':"Dans la pulsation existentielle :"
                                 +"<p class='fw-bold'>"+p.display_title+"</p>"
-                                +(flux ? "la temporalité du flux" : "L'ordre de la pulsation existentielle :")
-                                +(flux ? "n'est pas définie." : "n'est pas précisé.")
+                                +(nivFlux ? "la temporalité du flux" : "L'ordre de la pulsation existentielle :")
+                                +(nivFlux ? "n'est pas définie." : "n'est pas précisé.")
                                 ,'link': me.omk.getAdminLink(null,p.value_resource_id,"o:Item")});                            
                             return "?"
                         } 
@@ -355,6 +347,9 @@ export class pulsationsExistentielles {
                             pe.o["jdc:hasPouvoir"].forEach(po=>{
                                 if(po.value_resource_id){
                                     po.o = me.omk.getItem(po.value_resource_id);
+                                    let intensite = po.o["jdc:intensite"] ? parseInt(po.o["jdc:intensite"][0]["@value"]) : 0;
+                                    if(intensite>maxIntensite)maxIntensite=intensite;
+                                    if(intensite<minIntensite)minIntensite=intensite;
                                     pouvoirs.push({'pe':pe,'po':po.o});
                                 }else erreurs.push({'message':"Dans la pulsation existentielle :<br>"
                                         +pe.o['o:title']+"<br>"
@@ -370,6 +365,7 @@ export class pulsationsExistentielles {
                         .append('div')
                             .attr("class","fw-light text-start")
                             .text(p=>p.po['o:title']);
+                if(nivFlux==0)initPosiColor(minIntensite, maxIntensite);
                 liPouv.append('span')
                     .attr("class",p=>{
                         let cl = "badge text-bg-";
@@ -402,7 +398,7 @@ export class pulsationsExistentielles {
                     .attr("class","d-flex justify-content-center")
                     .style("height","3px")
                     .style("background-color",p=>{
-                        if(p.po["jdc:intensite"])return me.posCol(parseInt(p.po["jdc:intensite"][0]["@value"]));
+                        if(p.po["jdc:intensite"])return me.posCol.getColor('intensité',parseInt(p.po["jdc:intensite"][0]["@value"]));
                         else{
                             erreurs.push({'message':"Dans la pulsation existentielle :"
                                 +"<p class='fw-bold'>"+p.pe["o:title"]+"</p>"
@@ -436,7 +432,7 @@ export class pulsationsExistentielles {
                     .attr("class","row")                    
                     .append('ul').attr("id",p=>"fluxPE"+p.value_resource_id).attr("class","list-group mt-1 ms-3");
                 divPeFlux.each((p,i)=>{
-                    if(!flux)showPulsationsExistentielles(p.o,"jdc:flux",d3.select("#fluxPE"+p.value_resource_id),true);
+                    if(nivFluxMax > nivFlux)showPulsationsExistentielles(p.o,"jdc:flux",d3.select("#fluxPE"+p.value_resource_id),nivFlux+1);
                 });
             }else{
                 contPE.append('li').text('Pas de pulsations existentielles');
@@ -452,8 +448,11 @@ export class pulsationsExistentielles {
                             .style("margin-top","-4px")
                             .style("height","20px");
 
+            }            
+            if(nivFlux==0){
+                //TODO: mets à jour les couleurs
+                me.createDiagram();
             }
-            me.createDiagram();
             me.loader.hide(true);
         }
 
@@ -465,6 +464,7 @@ export class pulsationsExistentielles {
             me.playRaisonTrajective('cacheModele');
             me.infosRT.select("#detailsPulEx").selectAll("li").remove();
             me.infosRT.select("#titreRT").text("Veuillez sélectionner une raison trajective");
+            me.infosRT.select("#legendeRT").html("");
             me.infosRT.select("#auteurRT").text("");
             me.infosRT.select("#descRT").text("");
             clearMermaid();

@@ -6,6 +6,7 @@ export class posiColor {
         this.data = params.data ? params.data : false;
         this.pLib = params.pLib ? params.pLib : 'lib';
         this.pVal = params.pVal ? params.pVal : 'value';
+        this.pValMin = params.pValMin ? params.pValMin : 'valueMin';        
         this.pFreq = params.pFreq ? params.pFreq : 'nb';
         this.cont = params.cont ? params.cont : d3.select('body');
         this.svg = params.svg ? params.svg : false;
@@ -91,16 +92,20 @@ export class posiColor {
                             height:scBandY.bandwidth()
                           })
                     }else{
-                        me.colors[d[me.pLib]] = d3.scaleSequentialLog([0, d[me.pVal]], c);             
+                        me.colors[d[me.pLib]] = d3.scaleSequential([d[me.pValMin], d[me.pVal]], c);             
                         me.legendes[d[me.pLib]] = Legend(d3.select("#gData_"+i), me.colors[d[me.pLib]], {
                             title: d[me.pLib],
                             width:width-10,
+                            tickFormat: "~s",
                             height:scBandY.bandwidth()
                           })
                     }
                 });
         }
         
+        this.getColor = function(lib,val){
+            return me.colors[lib](val);
+        }
         this.addPosiInLegend = function(lib,val){
             //return;
             let t, leg = me.legendes[lib];

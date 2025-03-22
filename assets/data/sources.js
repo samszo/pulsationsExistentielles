@@ -1,7 +1,7 @@
 [
     {
         "name": "ACEHN 24-25",
-        "url": "https://acehn.jardindesconnaissances.fr/api/items?resource_class_id=509",
+        "url": "http://localhost/omk_acehn/api/items?resource_class_id=509",
         "fct":"genStory",
         "value":"s_0",
         "children": []
