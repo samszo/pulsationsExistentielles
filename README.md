@@ -24,7 +24,7 @@ Ne pas oublier de définir l'intensité du pouvoir entre :
 Il y a quatre types de pouvoir existentiel ayant chaucun des propriétés particulières :
 - Pouvoir de discerner : physique -> crible -> actant -> concept
 - Pouvoir de raisonner : concept -> actant -> concept
-- Pouvoir de résonner : concept -> actant -> concept
+- Pouvoir de résonner : concept -> concept
 - Pouvoir d'agir : concept -> actant -> crible -> physique
 
 
