@@ -62,7 +62,7 @@ export class pulsationsExistentielles {
             graph, graphCode, 
             fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],
             aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[],
-            nivFluxMax=10, minIntensite=0, maxIntensite=1,links=[],items=[],classMermaid=[];
+            nivFluxMax=10, minIntensite=0, maxIntensite=1,links=[],items=[],classMermaid=[],typePouvoirSelected=[];
 
         this.init = function () {
             console.log('init rt');
@@ -75,6 +75,27 @@ export class pulsationsExistentielles {
                     fetch('https://unpkg.com/@iconify-json/fa@1/icons.json').then((res) => res.json())
                 },
               ]);
+            //ajoute la bar de paramètre
+            me.cont.append('div').attr("id","checkTypePouvoir").attr("class","text-bg-secondary").html(`Selectionner les pouvoirs à afficher : <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="checkTypePouvoirDiscerner" value="Discerner" checked>
+                    <label class="form-check-label" for="checkTypePouvoirDiscerner">Discerner</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="checkTypePouvoirRaisonner" value="Raisonner" checked>
+                    <label class="form-check-label" for="checkTypePouvoirRaisonner">Raisonner</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="checkTypePouvoirResonner" value="Résonner" checked>
+                    <label class="form-check-label" for="checkTypePouvoirResonner">Résonner</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="checkTypePouvoirAgir" value="Agir" checked>
+                    <label class="form-check-label" for="checkTypePouvoirAgir">Agir</label>
+                    </div>
+                    `);
+            me.cont.select("#checkTypePouvoir").selectAll(".form-check-input").on('click',function() {
+                me.createDiagram();
+            })              
 
             layoutBase = me.ch.setLayout();
             allHexa = ha.makeHexagonalShape(1);
@@ -473,7 +494,7 @@ export class pulsationsExistentielles {
                             };
                 ulPouvProps.selectAll("li").data(p=>{
                         p.po.props = [];
-                        if(p.po["dcterms:type"]){
+                        if(p.po["dcterms:type"] && propsPouv[p.po["dcterms:type"][0].display_title]){
                             propsPouv[p.po["dcterms:type"][0].display_title].forEach(prop=>{
                                 if(p.po[prop]){
                                     p.po[prop].forEach(pp=>{
@@ -488,6 +509,13 @@ export class pulsationsExistentielles {
                                         +"<p class='fw-bold'>"+prop+"</p>.",'link': me.omk.getAdminLink(null,p.po["o:id"],"o:Item")});
                                 }
                             });
+                        }else{
+                            erreurs.push({'message':"Dans la pulsation existentielle :"
+                                +"<p class='fw-bold'>"+p.pe["o:title"]+"</p>"
+                                +"Le pouvoir de :"
+                                +"<p class='fw-bold'>"+p.po["o:title"]+"</p>"
+                                +"n'a pas de type de pouvoir ou n'a pas le bon type"
+                                +"",'link': me.omk.getAdminLink(null,p.po["o:id"],"o:Item")});
                         }
                         return p.po.props;   
                     }).enter().append('li').attr("class","list-group-item text-start fw-lighter")
@@ -1071,16 +1099,19 @@ export class pulsationsExistentielles {
         function clearMermaid(){
             me.svg.style('display','none');
             me.cont.selectAll('pre').remove();
-            me.cont.selectAll('div').remove();
             graph = me.cont
                 .append('pre').attr('id','mermaidGraph').attr("class","mermaid");
         }
 
         this.createDiagram = async function(){
+            clearMermaid();
             fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],links=[],items=[],
             classMermaid={},
             aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[];
-            clearMermaid();
+            typePouvoirSelected = [];
+            me.cont.select("#checkTypePouvoir").selectAll(".form-check-input:checked").each(function() {
+                typePouvoirSelected.push(this.value);
+            })
             let oRT = me.rt[0].o, niv = 0, rtId = "raisonTrajective"+oRT['o:id'];
             classMermaid.StartEnd={'code':'fill:green,stroke:white,stroke-width:8px','ids':[rtId,'rtEnd']};
 
@@ -1096,7 +1127,7 @@ export class pulsationsExistentielles {
             //create raison trajective
             if(oRT['o:title'] && oRT["jdc:hasPulsationExistentielle"]){
                 graphCode += `
-                    ${rtId}[${oRT['o:title']}];
+                    ${rtId}["${oRT['o:title']}"];
                 `;
                 //création des dimensions existentielles
                 /*
@@ -1113,7 +1144,7 @@ export class pulsationsExistentielles {
                     `;                                                
                     let grDE = d3.group(oRT[de.k], d => d.lib);
                     grDE.forEach((v,k)=>{
-                        graphCode += `${de.k+v[0].id+de.cDeb+k+de.cFin}
+                        graphCode += `${de.k+v[0].id+de.cDeb}"${k}"${de.cFin}
                         `;
                     });
                     if(de.k=='cribles'){
@@ -1214,17 +1245,22 @@ export class pulsationsExistentielles {
                     
                     grpPouvoir.forEach((v,k)=>{ 
                         console.log(k,v);
-                        if(k=="Discerner" || k=="Raisonner")return true;
+                        if(!typePouvoirSelected.includes(k))return false;
+                        
                         v.forEach((p,i)=>{
                             let intst = p.o["jdc:intensite"] ? parseInt(p.o["jdc:intensite"][0]["@value"]) : 0,
                                 color = me.posCol.getColor('intensité',intst),
-                                idLink = `PE_${vr.o['o:id']}_PO_${k}_${intst}`, link,
+                                idLink = `PE_${vr.o['o:id']}_PO_${k}_${intst}`, link, icon = "",
                                 linkExist = links.filter(l=>l.id==idLink).length;
                             if(!linkExist){
                                 link = {'num':links.length,'id':idLink,'int':intst,'color':color};
                                 links.animate = `${link.id}@{ animate: true}
                                 `;
-                                link.code = `PE_${vr.o['o:id']} ${link.id}@==> PO_${k}${niv==0 && j==0 ? '@{icon: "fa:bolt", form: "square", label: "'+k+'", pos: "t", h: 60 }' : ''}
+                                if(!items['PO_'+k]){
+                                    icon = '@{icon: "fa:bolt", form: "square", label: "'+k+'", pos: "t", h: 60 }';
+                                    items['PO_'+k] = true;
+                                }
+                                link.code = `PE_${vr.o['o:id']} ${link.id}@==> PO_${k+icon}
                                 ${link.id}@{ animate: true }
                                 `;
                                 links.push(link);
@@ -1437,8 +1473,8 @@ export class pulsationsExistentielles {
             const image = new Image();
             image.onload = () => {
                 const bb = svgElement.getBoundingClientRect();
-                const width = bb.width*100;
-                const height = bb.height*100;
+                const width = bb.width*10;
+                const height = bb.height*10;
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
