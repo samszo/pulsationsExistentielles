@@ -5,7 +5,7 @@ import * as hl from './hex-lib.js';
 import * as ha from './hex-algorithms.js';
 import {loader} from './loader.js';
 import {Treeselect} from './treeselectjs.mjs.js'
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 import {posiColor} from './posiColor.js';
 
 
@@ -60,13 +60,21 @@ export class pulsationsExistentielles {
             bbCribleD,bbCribleG,bbRaisonner,bbDicerner,bbAgir,extPathPoints,
             layoutBase, allHexa, polygonVerticesFlat,
             graph, graphCode, 
-            fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],links=[],items=[],
+            fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],
             aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[],
-            nivFluxMax=10, minIntensite=0, maxIntensite=1;
+            nivFluxMax=10, minIntensite=0, maxIntensite=1,links=[],items=[],classMermaid=[];
 
         this.init = function () {
             console.log('init rt');
             mermaid.initialize({ startOnLoad: false,theme: 'dark', });
+            //ajoute le pack d'icones
+            mermaid.registerIconPacks([
+                {
+                  name: 'fa',
+                  loader: () =>
+                    fetch('https://unpkg.com/@iconify-json/fa@1/icons.json').then((res) => res.json())
+                },
+              ]);
 
             layoutBase = me.ch.setLayout();
             allHexa = ha.makeHexagonalShape(1);
@@ -109,7 +117,13 @@ export class pulsationsExistentielles {
                 slot.addEventListener('click', (e) => {
                     e.preventDefault()
                     alert('Slot click!')
-                });                    
+                });
+                //ajoute le bouton de photo
+                let btnTof=me.navbar.append("li").attr("class","d-flex").append("button").attr("class","btn btn-outline-success");
+                btnTof.append("i").attr("class","fa-solid fa-camera");
+                btnTof.on('click',function(){
+                    me.savePng();
+                })                    
             }            
             //Chargment des sources                
             d3.json(me.sources).then(data => {
@@ -278,6 +292,12 @@ export class pulsationsExistentielles {
                 .style("height","20px");
             me.infosRT.select("#auteurRT").text(me.rt[0].o.owner['o:name'])
                 .append("span").text(" ("+me.rt[0].o["o:modified"]["@value"].split("T")[0]+")");
+            //initialise les dimensions existentielles
+            me.rt[0].o.physiques = [];
+            me.rt[0].o.cribles = [];
+            me.rt[0].o.actants = [];
+            me.rt[0].o.concepts = [];
+            //montyre les pulsations existentielles
             showPulsationsExistentielles(me.rt[0].o,"jdc:hasPulsationExistentielle",me.infosRT.select("#detailsPulEx"));
         }
 
@@ -349,6 +369,19 @@ export class pulsationsExistentielles {
                                     //récupère l'item omk
                                     po.o = me.omk.getItem(po.value_resource_id);
                                     let intensite = po.o["jdc:intensite"] ? parseInt(po.o["jdc:intensite"][0]["@value"]) : 0;
+                                    //compile les dimensions existentielles
+                                    if(po.o["jdc:hasPhysique"])po.o["jdc:hasPhysique"].forEach((poDE,i)=>{
+                                        me.rt[0].o.physiques.push({'id':poDE.value_resource_id ? poDE.value_resource_id : 'txt_'+po.value_resource_id+'_'+i,'lib':poDE.display_title ? poDE.display_title : poDE["@value"]});
+                                    });
+                                    if(po.o["jdc:hasCrible"])po.o["jdc:hasCrible"].forEach((poDE,i)=>{
+                                        me.rt[0].o.cribles.push({'id':poDE.value_resource_id ? poDE.value_resource_id : 'txt_'+po.value_resource_id+'_'+i,'lib':poDE.display_title ? poDE.display_title : poDE["@value"]});
+                                    });
+                                    if(po.o["jdc:hasActant"])po.o["jdc:hasActant"].forEach((poDE,i)=>{
+                                        me.rt[0].o.actants.push({'id':poDE.value_resource_id ? poDE.value_resource_id : 'txt_'+po.value_resource_id+'_'+i,'lib':poDE.display_title ? poDE.display_title : poDE["@value"]});
+                                    });
+                                    if(po.o["jdc:hasConcept"])po.o["jdc:hasConcept"].forEach((poDE,i)=>{
+                                        me.rt[0].o.concepts.push({'id':poDE.value_resource_id ? poDE.value_resource_id : 'txt_'+po.value_resource_id+'_'+i,'lib':poDE.display_title ? poDE.display_title : poDE["@value"]});
+                                    });
                                     //met à jour les intervalles d'intensité
                                     if(intensite>maxIntensite)maxIntensite=intensite;
                                     if(intensite<minIntensite)minIntensite=intensite;
@@ -1045,29 +1078,70 @@ export class pulsationsExistentielles {
 
         this.createDiagram = async function(){
             fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],links=[],items=[],
+            classMermaid={},
             aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[];
             clearMermaid();
-            let niv = 0;
+            let oRT = me.rt[0].o, niv = 0, rtId = "raisonTrajective"+oRT['o:id'];
+            classMermaid.StartEnd={'code':'fill:green,stroke:white,stroke-width:8px','ids':[rtId,'rtEnd']};
+
             graphCode = `
             %%{
                 init: {
-                  'theme': 'black',
-                  'themeVariables': {
-                    'edgeLabelBackground':'white'
-                  }
+                  'theme': 'neutral'
                 }
             }%%
-            flowchart TD`;
+            flowchart TD
+            `;
+            
             //create raison trajective
-            if(me.rt[0].o['o:title'] && me.rt[0].o["jdc:hasPulsationExistentielle"]){
+            if(oRT['o:title'] && oRT["jdc:hasPulsationExistentielle"]){
                 graphCode += `
-                    raisonTrajective[${me.rt[0].o['o:title']}];
-                    rtEnd[Fin du flux]`;
+                    ${rtId}[${oRT['o:title']}];
+                `;
+                //création des dimensions existentielles
+                /*
+                graphCode += `
+                subgraph sgDimExi[Dimensions existentielles];
+                `;
+                */                                                
+                [{'k':'physiques','cDeb':'(','cFin':')'},
+                 {'k':'cribles','cDeb':'[[','cFin':']]'},
+                 {'k':'actants','cDeb':'{{','cFin':'}}'},
+                 {'k':'concepts','cDeb':'((','cFin':'))'}].forEach(de=>{
+                    graphCode += `
+                    subgraph sg${de.k}[${de.k == 'cribles' ? de.k : 'Dimensions '+de.k}];
+                    `;                                                
+                    let grDE = d3.group(oRT[de.k], d => d.lib);
+                    grDE.forEach((v,k)=>{
+                        graphCode += `${de.k+v[0].id+de.cDeb+k+de.cFin}
+                        `;
+                    });
+                    if(de.k=='cribles'){
+                        graphCode += `end
+                            end
+                        `;
+                    }else if(de.k!='physiques'){
+                        graphCode += `end
+                        `;
+                    }
+
+                })
+                /*fin groupe dimensions existentielles
+                graphCode += `end
+                `;
+                */
+                //ajoute les liens
+                //links.push({'code':`${rtId} --> sgDimExi`});
+                links.push({'code':`sgphysiques --> sgactants`});
+                links.push({'code':`sgactants --> sgconcepts`});
+                //links.push({'code':`rtEnd --> ${rtId}`});
+                
                 //create flow for each pulsation existentielles dans l'odre défini
                 //ordonne les pulsations par ordre dans le flux
-                let pulExFlux = me.rt[0].o["jdc:hasPulsationExistentielle"].filter(p=>p["@annotation"] && p["@annotation"]["jdc:flux"]),
+                let pulExFlux = oRT["jdc:hasPulsationExistentielle"].filter(p=>p["@annotation"] && p["@annotation"]["jdc:flux"]),
                     pulEx = pulExFlux.sort((a, b) => a["@annotation"]["jdc:flux"][0]["@value"] - b["@annotation"]["jdc:flux"][0]["@value"]);
-                createPulsationSubgraph(pulEx,'raisonTrajective -->',niv);
+                //createPulsationSubgraph(pulEx,rtId,niv);
+                createPulsationPower(pulEx,rtId,niv);
             }else{
                 graphCode += `
                     raisonTrajective[Start] -->pulsations{Pas de pulsations existentielles};
@@ -1075,25 +1149,32 @@ export class pulsationsExistentielles {
                     `;
             }
 
-            graphCode += `
-            classDef StartEnd fill:green,stroke:white,stroke-width:8px
-            classDef fluxPlus fill:green,stroke:green,stroke-width:4px
-            classDef fluxMoins fill:red,stroke:red,stroke-width:4px,color:white
-            classDef estBon fill:orange,stroke:orange,stroke-width:8px,color:black
+            //ajoute les liens
+            links.forEach(l=>{
+                graphCode += `${l.code}
+                    `;
+            });
+            /*ajoute les classes d'objet            
+            for (const k in classMermaid) {
+                graphCode += `
+                classDef ${k} ${classMermaid[k].code}                
+                `;
+                if(classMermaid[k].ids.length){
+                    graphCode+= `class ${classMermaid[k].ids.join(',')} ${k};
+                    `;
+                }
+            };
+            */
+            //ajoute les class de liens
+            let grpColor = d3.group(links, d => d.color);
+            grpColor.forEach((v,k)=>{
+                if(k){  
+                    graphCode += `
+                    linkStyle ${v.map(l=>l.num).join(",")} stroke:${d3.color(k).formatHex()},stroke-width:4px;    
+                    `;
+                }
+            });
             
-            class raisonTrajective,rtEnd,pulsations StartEnd;
-            `;
-            if(fluxPlus.length)graphCode+= `class ${fluxPlus.join(',')} fluxPlus;
-            `;
-            if(fluxMoins.length)graphCode+= `class ${fluxMoins.join(',')} fluxMoins;
-            `;
-            if(estBon.length)graphCode+= `class ${estBon.join(',')} estBon;
-            `;
-            if(linkPlus.length)graphCode+= `linkStyle ${linkPlus.join(',')} stroke:green,color:green,stroke-width:4px,color:green
-            `;
-            if(linkMoins.length)graphCode+= `linkStyle ${linkMoins.join(',')} stroke:red,color:red
-            `;
-
             //render graphCode
             console.log(graphCode);        
             graph.html(graphCode);
@@ -1119,129 +1200,262 @@ export class pulsationsExistentielles {
         }
 
         //create event subgraph
-        function createPulsationSubgraph(rs,startNode,niv){
-            //${startNode} |${vr["@annotation"] && p["@annotation"][flux ? "dcterms:temporal" : "jdc:flux"] ? "success" : "danger";}|item${vr.value_resource_id}                                        
-
+        function createPulsationPower(rs,startNode,niv){
+            //ajoute les pulsations existentielles sous la forme de lien entre les dimension existentielles
             rs.forEach((vr,j)=>{
+                if(!vr.o)return true;
+                let numFlux = vr["@annotation"] && vr["@annotation"]["jdc:flux"] ? vr["@annotation"]["jdc:flux"][0]["@value"] : "???",
+                    temps = vr["@annotation"]["dcterms:temporal"] ? vr["@annotation"]["dcterms:temporal"][0].display_title : vr["@annotation"]["jdc:flux"][0]["@value"];
+                links.push({'code':`${startNode}-->|${temps}|PE_${vr.o['o:id']}[${vr.o['o:title']}] 
+                    `});        
+                //ajoute les pouvoirs
+                if(vr.o['jdc:hasPouvoir']){
+                    let grpPouvoir = d3.group(vr.o["jdc:hasPouvoir"], d => d.o["dcterms:type"][0].display_title);
+                    
+                    grpPouvoir.forEach((v,k)=>{ 
+                        console.log(k,v);
+                        if(k=="Discerner" || k=="Raisonner")return true;
+                        v.forEach((p,i)=>{
+                            let intst = p.o["jdc:intensite"] ? parseInt(p.o["jdc:intensite"][0]["@value"]) : 0,
+                                color = me.posCol.getColor('intensité',intst),
+                                idLink = `PE_${vr.o['o:id']}_PO_${k}_${intst}`, link,
+                                linkExist = links.filter(l=>l.id==idLink).length;
+                            if(!linkExist){
+                                link = {'num':links.length,'id':idLink,'int':intst,'color':color};
+                                links.animate = `${link.id}@{ animate: true}
+                                `;
+                                link.code = `PE_${vr.o['o:id']} ${link.id}@==> PO_${k}${niv==0 && j==0 ? '@{icon: "fa:bolt", form: "square", label: "'+k+'", pos: "t", h: 60 }' : ''}
+                                ${link.id}@{ animate: true }
+                                `;
+                                links.push(link);
+                            }
+                            link = {'num':links.length,'id':`${k}PO_${p.value_resource_id}`,'int':intst,'color':color};
+                            linkExist = links.filter(l=>l.id==link.id).length;
+                            if(!linkExist){                            
+                                links.animate = `${link.id}@{ animate: true}
+                                `;
+                                link.code = `PO_${k} ${link.id}@==> PO_${p.value_resource_id}@{shape: paper-tape, label: "${p.display_title}"} 
+                                ${link.id}@{ animate: true }
+                                `;
+                                links.push(link);
+                            }
+                            switch (k) {
+                                case "Discerner":
+                                    //pouvoir -> physique
+                                    let idsPhys = addPowerLinkDimEx(p,p.value_resource_id,'PO_','physiques',"jdc:hasPhysique",intst,color);
+                                    idsPhys.forEach((idPhy,i)=>{
+                                        if(p.o["jdc:hasCrible"]){
+                                            //physique -> crible
+                                            let idsCrible = addPowerLinkDimEx(p,idPhy,'physiques','cribles',"jdc:hasCrible",intst,color);
+                                            idsCrible.forEach((idCrible,i)=>{
+                                                //crible -> actant                                            
+                                                let idsActant = addPowerLinkDimEx(p,idCrible,'cribles','actants',"jdc:hasActant",intst,color);
+                                                idsActant.forEach((idActant,i)=>{
+                                                    //actant -> concept
+                                                    let idsCpt = addPowerLinkDimEx(p,idActant,'actants','concepts',"jdc:hasConcept",intst,color);                                                
+                                                });
+                                            });
+                                        }
+                                    });                                                
+                                    break;                        
+                                case "Raisonner":
+                                    //pouvoir -> actant                                            
+                                    let idsActant = addPowerLinkDimEx(p,p.value_resource_id,'PO_','actants',"jdc:hasActant",intst,color);
+                                    idsActant.forEach((idActant,i)=>{
+                                        //actant -> concept
+                                        let idsCpt = addPowerLinkDimEx(p,idActant,'actants','concepts',"jdc:hasConcept",intst,color);                                                
+                                    });
+                                    break;                        
+                                case "Agir":
+                                    //pouvoir -> concept
+                                    let idsCpt = addPowerLinkDimEx(p,p.value_resource_id,'PO_','concepts',"jdc:hasConcept",intst,color);                                                                                            
+                                    idsCpt.forEach((idActant,i)=>{
+                                        //concept -> actant
+                                        let idsActant = addPowerLinkDimEx(p,p.value_resource_id,'PO_','actants',"jdc:hasActant",intst,color);
+                                        idsActant.forEach((idActant,i)=>{
+                                            //actant -> crible
+                                            let idsCrible = addPowerLinkDimEx(p,idActant,'actants','cribles',"jdc:hasCrible",intst,color);
+                                            idsCrible.forEach((idCrible,i)=>{
+                                                //crible -> physique
+                                                let idsPhys = addPowerLinkDimEx(p,idCrible,'cribles','physiques',"jdc:hasPhysique",intst,color);
+                                            });
+                                        });
+                                    });
+                                    break;          
+                                default:
+                                    break;
+                            }
+                        });
+                    });                              
+                }
+                //ajoute les pulsations existentielles liées avant, pendant et après
+                if(vr.o['jdc:flux'] && niv < 2){
+                    createPulsationPower(vr.o['jdc:flux'],`PE_${vr.o['o:id']}`,niv+1);
+                }
+            });
+        }
+
+        function createPulsationSubgraph(rs,startNode,niv){
+            graphCode += `
+            subgraph sgPE[Pulsations existentielles]
+            `;
+            rs.forEach((vr,j)=>{
+                //if(j>0)return true;
                 //check if node exist
                 let numFlux = vr["@annotation"] && vr["@annotation"]["jdc:flux"] ? vr["@annotation"]["jdc:flux"][0]["@value"] : "???";
-                if(items[vr.value_resource_id]){
-                    graphCode += `
-                    ${startNode} |${numFlux}|item${vr.value_resource_id}                                        
-                    `;
-                    links++;
-                    if(startNode.startsWith('pulsations'))linkPlus.push(links);
-                    if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
-                    if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
-                }else{
-                    graphCode += `
-                    subgraph peItem${vr.o['o:id']}[-]`;
-                    graphCode += `
-                    item${vr.o['o:id']}[${vr.o['o:title']}]-->estBon${vr.o['o:id']}{est bon ?}
-                    estBon${vr.o['o:id']}-->|yes|pouvoirPlus${vr.o['o:id']}{le pouvoir augmente}
-                    estBon${vr.o['o:id']}-->|no|pouvoirMoins${vr.o['o:id']}{le pouvoir diminu}
-                    end
-                    `;
-                    if(j>0){
-                        let numFluxPrev = rs[j-1]["@annotation"] && rs[j-1]["@annotation"]["jdc:flux"] ? rs[j-1]["@annotation"]["jdc:flux"][0]["@value"] : "???";
-                        graphCode += `
-                        item${rs[j-1].o['o:id']}-->|${numFluxPrev+' -> '+numFlux}|item${vr.o['o:id']}                                        
-                        `;
-                    }else{
-                        graphCode += `
-                        ${startNode} |${numFlux}|item${vr.o['o:id']}                                        
-                        `;    
-                    }
-                    /*ajoute le pouvoirs
-                    if(r['jdc:hasPouvoir']){
-                        graphCode += `
-                        item${r['o:id']}[${r['o:title']}]-->estBon${r['o:id']}{est bon ?}
-                        estBon${r['o:id']}-->|yes|pouvoirPlus${r['o:id']}{le pouvoir augmente}
-                        estBon${r['o:id']}-->|no|pouvoirMoins${r['o:id']}{le pouvoir diminu}
-                        end
-                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                        `;
-                        estBon.push(`estBon${r['o:id']}`);
-                        fluxMoins.push(`pouvoirMoins${r['o:id']}`);
-                        fluxPlus.push(`pouvoirPlus${r['o:id']}`);
-                        links++;
-                        linkPlus.push(links);
-                        links++;
-                        linkPlus.push(links);
-                        links++;
-                        linkMoins.push(links);
-                        links++;
-                        linkPlus.push(links);
-                        //create fail event
-                        createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirMoins'+r['o:id']+'-->',niv+1);
-                        //create valid event
-                        createPulsationSubgraph(r,'jdc:hasPouvoir','pouvoirPlus'+r['o:id']+'-->',niv+1);
-                    }else{
-                        graphCode += `
-                        item${r['o:id']}[${r['o:title']}]
-                        end
-                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                        item${r['o:id']} --> |Pas de flux|rtEnd                                        
-                        `;
-                        links++;
-                        if(startNode.startsWith('pulsations'))linkPlus.push(links);
-                        if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
-                        if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
-                        links++;
-                        linkMoins.push(links);
-                    } 
-                    */
+                graphCode += `
+                subgraph sgPE${vr.o['o:id']}[ ]
+                    PE_${vr.o['o:id']}[${vr.o['o:title']}]
+                `;
+                //ajoute les pouvoirs
+                if(vr.o['jdc:hasPouvoir']){
+                    let grpPouvoir = d3.group(vr.o["jdc:hasPouvoir"], d => d.o["dcterms:type"][0].display_title);
+                    
+                    grpPouvoir.forEach((v,k)=>{ 
+                        console.log(k,v);
 
-                    /*ajoute les autres flux
-                    if(r['jdc:jdc:flux']){
                         graphCode += `
-                        item${r['o:id']}[${r['o:title']}]-->aFlux${r['o:id']}{A d'autre flux ?}
-                        aFlux${r['o:id']}-->|avant|fluxAvant${r['o:id']}{flux avant}
-                        aFlux${r['o:id']}-->|pendant|fluxPendant${r['o:id']}{flux pendant}
-                        aFlux${r['o:id']}-->|après|fluxApres${r['o:id']}{flux après}
-                        end
-                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
+                        subgraph sgPo${k+"_"+vr.o['o:id']}[${k}]
                         `;
-                        aFlux.push(`aFlux${r['o:id']}`);
-                        fluxAvant.push(`fluxAvant${r['o:id']}`);
-                        fluxPendant.push(`fluxPendant${r['o:id']}`);
-                        fluxApres.push(`fluxApres${r['o:id']}`);
-                        links++;
-                        linkPlus.push(links);
-                        links++;
-                        linkPlus.push(links);
-                        links++;
-                        linkMoins.push(links);
-                        links++;
-                        linkPlus.push(links);
-                        links++;
-                        linkPlus.push(links);
-                        //create fail event
-                        createPulsationSubgraph(r,'jdc:flux','fluxAvant'+r['o:id']+'-->',niv+1);
-                        //create valid event
-                        createPulsationSubgraph(r,'jdc:flux','fluxApres'+r['o:id']+'-->',niv+1);
-                    }else{
-                        graphCode += `
-                        item${r['o:id']}[${r['o:title']}]
-                        end
-                        ${startNode} |${op['o:label']}|item${r['o:id']}                                        
-                        item${r['o:id']} --> |Pas de flux|rtEnd                                        
-                        `;
-                        links++;
-                        if(startNode.startsWith('pulsations'))linkPlus.push(links);
-                        if(startNode.startsWith('pouvoirPlus'))linkPlus.push(links);
-                        if(startNode.startsWith('pouvoirMoins'))linkMoins.push(links);
-                        links++;
-                        linkMoins.push(links);
-                    } 
-                    */
+                        v.forEach((p,i)=>{
+                            graphCode += `
+                            PO_${p.value_resource_id}@{ icon: "fa:bolt", form: "square", label: "${p.display_title}", pos: "t", h: 60 }
+                            `;
+                            let intst = p.o["jdc:intensite"] ? parseInt(p.o["jdc:intensite"][0]["@value"]) : 0,
+                                color = me.posCol.getColor('intensité',intst);
 
+                            //ajoute les liens pouvoirs -> dimensions existentielles
+                            /*
+                            if(p.o["jdc:hasPhysique"])p.o["jdc:hasPhysique"].forEach((poPhy,i)=>{
+                                let idPhy = me.rt[0].o.physiques.filter(fv=>fv.lib==(poPhy.value_resource_id ? poPhy.display_title : poPhy["@value"]))[0].id;
+                                */
+                            if(p.o["jdc:hasPhysique"]){
+                                //pouvoir -> physique
+                                let idsPhys = addPowerLinkDimEx(p,p.value_resource_id,'PO_','physiques',"jdc:hasPhysique",intst,color);                                                
+                                idsPhys.forEach((idPhy,i)=>{
+                                    if(p.o["jdc:hasCrible"]){
+                                        //physique -> crible
+                                        let idsCrible = addPowerLinkDimEx(p,idPhy,'physiques','cribles',"jdc:hasCrible",intst,color);
+                                        idsCrible.forEach((idCrible,i)=>{
+                                            //crible -> actant                                            
+                                            let idsActant = addPowerLinkDimEx(p,idCrible,'cribles','actants',"jdc:hasActant",intst,color);
+                                            idsActant.forEach((idActant,i)=>{
+                                                //actant -> pouvoir
+                                                let idLink = `linkActPO_${idActant}_${p.value_resource_id}`,
+                                                link = {'num':links.length,'id':idLink,'int':intst,'color':color};
+                                                links.animate = `${idLink}@{ animate:true}
+                                                `;
+                                                link.code = `actants${idActant} ${idLink}@==> PO_${p.value_resource_id}
+                                                ${idLink}@{ animate: true }
+                                                `;
+                                                links.push(link);
+                                                //pouvoir -> concept
+                                                let idsCpt = addPowerLinkDimEx(p,p.value_resource_id,'PO_','concepts',"jdc:hasConcept",intst,color);                                                
+                                            });
+                                        });
+                                    }else{
+                                        addPowerLinkDimEx(p,idPhy,'physiques','actants',"jdc:hasActant",intst,color);
+                                    }
+                                });
+                            }
+                        })
+                        graphCode += `
+                        end
+                        `;
+                        /*pas de lien entre la pulsation et tous les pouvoirs
+                        links.push({'code':`PE_${vr.o['o:id']}-->| |sgPo${k+"_"+vr.o['o:id']} 
+                            `});
+                            */
+                    })
                 }
+                graphCode += `
+                end
+                `;
+
+                if(j>0){
+                    let numFluxPrev = rs[j-1]["@annotation"] && rs[j-1]["@annotation"]["jdc:flux"] ? rs[j-1]["@annotation"]["jdc:flux"][0]["@value"] : "???";
+                    /* Pas de lien entre les pulsations
+                    links.push({'code':`PE_${rs[j-1].o['o:id']}-->|${numFluxPrev+' -> '+numFlux}|PE_${vr.o['o:id']} 
+                        `});
+                    */
+                }else{
+                    links.push({'code':`PE_${vr.o['o:id']}-->| |sgPo${"Discerner_"+vr.o['o:id']}
+                        `});
+                    links.push({'code':`sgPo${"Discerner_"+vr.o['o:id']}-->| |sgPo${"Raisonner_"+vr.o['o:id']}
+                        `});
+                    links.push({'code':`sgPo${"Raisonner_"+vr.o['o:id']}-->| |sgPo${"Agir_"+vr.o['o:id']}
+                        `});
+                    links.push({'code':`sgPo${"Agir_"+vr.o['o:id']}-->| |PE_${vr.o['o:id']}
+                        `});
+                }
+                
             })
             graphCode += `
-                item${rs[rs.length-1].o['o:id']}-->|plus de flux|rtEnd                                       
+            end
             `;
+            links.push({'code':`${startNode} --> | |sgPE 
+                `});
+    
 
+            /*
+            links.push({'code':`PE_${rs[rs.length-1].o['o:id']}-->|plus de flux|rtEnd
+                `});
+            */
+        }
+
+        function addPowerLinkDimEx(p,idStart,dimStart,dimEnd,prop,intst,color){
+            let idsProp = [];
+            if(p.o[prop])p.o[prop].forEach((poProp,i)=>{
+                let idProp = me.rt[0].o[dimEnd].filter(fv=>fv.lib==(poProp.value_resource_id ? poProp.display_title : poProp["@value"]))[0].id,
+                idLink = `linkPO_${p.value_resource_id}_${idStart}_${idProp}`,
+                link = {'num':links.length,'id':idLink,'int':intst,'color':color};
+                links.animate = `${idLink}@{ animate: true}
+                `;
+                link.code = `${dimStart+idStart} ${idLink}@==> ${dimEnd+idProp}
+                ${idLink}@{ animate: true }
+                `;
+                //vérifie si le lien existe déjà
+                let isExist = links.filter(l=>l.id==idLink);
+                if(!isExist.length){
+                    links.push(link);
+                    idsProp.push(idProp);    
+                }
+            });        
+            return idsProp;
+        }
+
+        this.savePng = function(){
+            let svg = d3.select("#mermaidGraph").select('svg').node();
+            exportSvgToPng(svg, 'pulsationExistentielle.png');
+        }
+
+        function exportSvgToPng(svgElement, fileName) {
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            const image = new Image();
+            image.onload = () => {
+                const bb = svgElement.getBoundingClientRect();
+                const width = bb.width*100;
+                const height = bb.height*100;
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                context.drawImage(image, 0, 0, width, height);
+                URL.revokeObjectURL(url);
+
+                canvas.toBlob(blob => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }, 'image/png');
+            };
+            image.src = url;
         }
 
         this.init();
