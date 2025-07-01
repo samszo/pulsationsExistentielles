@@ -16,7 +16,7 @@
 
 <div class="mermaid" id="classDiagram"></div>
 <script>
-const apiUrl = "https://api.github.com/repos/samszo/Candidature-d-alternance/contents/data/rt";
+const apiUrl = "https://api.github.com/repos/samszo/pulsationsExistentielles/contents/assets/data/rt";
 let mermaidText = "classDiagram\n";
 
 d3.json(apiUrl)
@@ -31,12 +31,13 @@ d3.json(apiUrl)
                     properties.forEach(prop => {
                         const label = prop.label;
                         const localName = prop.local_name;
-                        const type = (localName === "aUtiliseMobile" || localName === "estInteresséParEcommerce") ? "Boolean" : "String";
+                        const type = prop.data_types[0] ? prop.data_types[0].label : "String";
                         mermaidText += `    +${type} ${label}\n`;
                     });
                     mermaidText += "}\n";
                 });
                 document.getElementById("classDiagram").innerHTML = mermaidText;
+                console.log("Diagramme Mermaid généré :", mermaidText);
                 mermaid.init(undefined, document.querySelectorAll(".mermaid"));
             })
             .catch(error => {

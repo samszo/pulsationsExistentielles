@@ -105,7 +105,7 @@
                     "default_value": "",
                     "automatic_value": "",
                     "split_separator": "",
-                    "resource_query": "",
+                    "resource_query": "resource_class_id=132",
                     "settings": "",
                     "o:alternate_label": "",
                     "o:alternate_comment": "",
@@ -130,10 +130,20 @@
                     "value_suggest_keep_original_label": "",
                     "value_suggest_require_uri": "",
                     "value_annotations_template": "",
-                    "data_types": []
+                    "data_types": [
+                        {
+                            "name": "resource:item",
+                            "label": "Item"
+                        }
+                    ]
                 }
             ],
-            "data_types": [],
+            "data_types": [
+                {
+                    "name": "resource:item",
+                    "label": "Item"
+                }
+            ],
             "vocabulary_namespace_uri": "https://jardindesconnaissances.univ-paris8.fr/onto/jdc#",
             "vocabulary_label": "Jardin des connaissances",
             "local_name": "hasActant",
@@ -151,7 +161,7 @@
                     "default_value": "",
                     "automatic_value": "",
                     "split_separator": "",
-                    "resource_query": "",
+                    "resource_query": "resource_class_id=129",
                     "settings": "",
                     "o:alternate_label": "",
                     "o:alternate_comment": "",
@@ -176,10 +186,20 @@
                     "value_suggest_keep_original_label": "",
                     "value_suggest_require_uri": "",
                     "value_annotations_template": "",
-                    "data_types": []
+                    "data_types": [
+                        {
+                            "name": "resource:item",
+                            "label": "Item"
+                        }
+                    ]
                 }
             ],
-            "data_types": [],
+            "data_types": [
+                {
+                    "name": "resource:item",
+                    "label": "Item"
+                }
+            ],
             "vocabulary_namespace_uri": "https://jardindesconnaissances.univ-paris8.fr/onto/jdc#",
             "vocabulary_label": "Jardin des connaissances",
             "local_name": "hasCrible",
@@ -197,7 +217,7 @@
                     "default_value": "",
                     "automatic_value": "",
                     "split_separator": "",
-                    "resource_query": "",
+                    "resource_query": "resource_class_id=134",
                     "settings": "",
                     "o:alternate_label": "",
                     "o:alternate_comment": "",
@@ -222,10 +242,20 @@
                     "value_suggest_keep_original_label": "",
                     "value_suggest_require_uri": "",
                     "value_annotations_template": "",
-                    "data_types": []
+                    "data_types": [
+                        {
+                            "name": "resource:item",
+                            "label": "Item"
+                        }
+                    ]
                 }
             ],
-            "data_types": [],
+            "data_types": [
+                {
+                    "name": "resource:item",
+                    "label": "Item"
+                }
+            ],
             "vocabulary_namespace_uri": "https://jardindesconnaissances.univ-paris8.fr/onto/jdc#",
             "vocabulary_label": "Jardin des connaissances",
             "local_name": "hasPhysique",
@@ -243,7 +273,7 @@
                     "default_value": "",
                     "automatic_value": "",
                     "split_separator": "",
-                    "resource_query": "",
+                    "resource_query": "resource_class_id=137",
                     "settings": "",
                     "o:alternate_label": "",
                     "o:alternate_comment": "",
@@ -268,10 +298,20 @@
                     "value_suggest_keep_original_label": "",
                     "value_suggest_require_uri": "",
                     "value_annotations_template": "",
-                    "data_types": []
+                    "data_types": [
+                        {
+                            "name": "resource:item",
+                            "label": "Item"
+                        }
+                    ]
                 }
             ],
-            "data_types": [],
+            "data_types": [
+                {
+                    "name": "resource:item",
+                    "label": "Item"
+                }
+            ],
             "vocabulary_namespace_uri": "https://jardindesconnaissances.univ-paris8.fr/onto/jdc#",
             "vocabulary_label": "Jardin des connaissances",
             "local_name": "hasConcept",
@@ -398,9 +438,7 @@
     },
     "o:data": {
         "use_for_resources": [
-            "items",
-            "media",
-            "item_sets"
+            "items"
         ],
         "require_resource_class": "0",
         "closed_class_list": "0",
