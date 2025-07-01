@@ -25,6 +25,7 @@ Il y a quatre types de pouvoir existentiel ayant chaucun des propriétés partic
 - Pouvoir de discerner : physique -> crible -> actant -> concept
 - Pouvoir de raisonner : concept -> actant -> concept
 - Pouvoir de résonner : concept -> concept
+- Pouvoir de raisonabilité : actant -> concept
 - Pouvoir d'agir : concept -> actant -> crible -> physique
 
 
