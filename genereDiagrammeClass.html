@@ -26,7 +26,8 @@ d3.json(apiUrl)
         Promise.all(filePromises)
             .then(fileContents => {
                 fileContents.forEach(data => {
-                    mermaidText += `class ${data['o:label']} {\n`;
+                    let className = data["o:resource_class"] ? data["o:resource_class"].local_name : data['o:label'].replace(/\s+/g, '');
+                    mermaidText += `class ${className}["${data['o:label']}"] {\n`;
                     const properties = data["o:resource_template_property"];
                     properties.forEach(prop => {
                         const label = prop.label;
