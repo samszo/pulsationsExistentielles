@@ -7,6 +7,13 @@
         "children": []
     },
     {
+        "name": "Creation P8",
+        "url": "http://localhost/omk_creationsp8/api/items?resource_class_id=1315",
+        "fct":"genStory",
+        "value":"s_0",
+        "children": []
+    },
+    {
         "value":"ex_0",
         "name": "Premiers flux",
         "children": [
