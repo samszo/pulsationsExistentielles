@@ -6,13 +6,14 @@ export class modal {
         this.body = params.body ? params.body : "";
         this.boutons = params.boutons ? params.boutons : [{'name':"Close"}];
         this.size = params.size ? params.size : '';
+        this.style = params.style ? params.style : '';
         var m, mBody, mFooter;
         this.init = function () {
             //ajoute la modal pour les messages
             let html = `
                 <div class="modal-dialog ${me.size}">
                 <div class="modal-content">
-                    <div class="modal-header">
+                    <div class="modal-header ${me.style && me.style.header ? me.style.header : ''} ">
                     <h5 class="modal-title">${me.titre}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>

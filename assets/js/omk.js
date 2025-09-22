@@ -1,7 +1,9 @@
+import {modal} from './modal.js';
+
 export class omk {
     constructor(params) {
         var me = this;
-        this.modal;
+        this.modal = new modal();
         this.key = params.key ? params.key : false;
         this.ident = params.ident ? params.ident : false;
         this.mail = params.mail ? params.mail : false;
@@ -100,6 +102,16 @@ export class omk {
                 })
             })
         }
+
+        this.showAdmin = function (id, type="item"){
+            let url = me.api.replace("/api/","/admin/")+type+"/"+id;
+            me.modal=new modal({'size':'modal-lg', 'style':{'header':'bg-secondary text-white'},
+                'titre':'Administration Omeka S',
+                'body':'<iframe style="width:100%;height:80vh;border:none;" src="'+url+'"></iframe>',
+            });
+            me.modal.show();
+        }
+
 
         this.getResource = function (id, type, cb=false){
             let url = me.api+type+'/'+id,

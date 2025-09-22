@@ -7,6 +7,8 @@ import {loader} from './loader.js';
 import {Treeselect} from './treeselectjs.mjs.js'
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 import {posiColor} from './posiColor.js';
+import {pa} from './authParams.js';
+import {auth} from './auth.js';
 
 
 export class pulsationsExistentielles {
@@ -1226,8 +1228,36 @@ export class pulsationsExistentielles {
                     container.addEventListener("wheel", (event) => {
                         panzoomInstance.zoomWithWheel(event);
                     });
+
+                    addInteractivity(svgElement);
                 }
-              });
+            });
+        }
+
+        function addInteractivity(svgElement){
+            //ajoute l'intéraction avec les éléments
+            d3.select(svgElement).selectAll('g.node').style('cursor','pointer')
+                .on('click', function(event, d) {
+                    let id = d3.select(this).attr('id').replace('flowchart-','');
+                    //'flowchart-PE_2241-55'
+                    console.log(id);
+                    if(id.startsWith('PE_')){
+                        let peId = id.split('_')[1].split('-')[0];
+                        me.omk.showAdmin(peId);
+                    }else if(id.startsWith('PO_')){
+                        let poId = id.split('_')[1];
+                        let po = null;
+                        ['Discerner','Raisonner','Agir'].some(tp=>{
+                            let tpo = oRT['jdc:hasPouvoir'] ? oRT['jdc:hasPouvoir'].filter(p=>p.o['dcterms:type'] 
+                                && p.o['dcterms:type'][0].display_title==tp 
+                                && p.value_resource_id==poId) : null;
+                            if(tpo && tpo.length){
+                                po = tpo[0];
+                                return true;
+                            }
+                        });
+                    }
+                });                    
         }
 
         //create event subgraph

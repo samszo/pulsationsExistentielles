@@ -1,14 +1,7 @@
 [
     {
-        "name": "ACEHN 24-25",
-        "url": "http://localhost/omk_acehn/api/items?resource_class_id=509",
-        "fct":"genStory",
-        "value":"s_0",
-        "children": []
-    },
-    {
         "name": "Creation P8",
-        "url": "http://localhost/omk_creationsp8/api/items?resource_class_id=1315",
+        "url": "http://localhost/omk_creationsp8/api/items?resource_class_id=1314",
         "fct":"genStory",
         "value":"s_0",
         "children": []
