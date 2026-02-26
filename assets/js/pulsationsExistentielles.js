@@ -64,7 +64,7 @@ export class pulsationsExistentielles {
             graph, graphCode, 
             fluxPlus=[], fluxMoins=[],estBon=[],linkPlus=[],linkMoins=[],
             aFlux=[], fluxAvant=[], fluxPendant=[], fluxApres=[],
-            nivFluxMax=10, minIntensite=0, maxIntensite=1,links=[],items=[],classMermaid=[],typePouvoirSelected=[];
+            nivFluxMax=100, minIntensite=0, maxIntensite=1,links=[],items=[],classMermaid=[],typePouvoirSelected=[];
 
         this.init = function () {
             console.log('init rt');
@@ -152,8 +152,8 @@ export class pulsationsExistentielles {
             d3.json(me.sources).then(data => {
                 let options=data, jsonS=[],optUrl = [];
                 data.forEach((s,i) => {
-                    if(s.url){
-                        jsonS.push(d3.json(s.url))
+                    if(s.url){                        
+                        jsonS.push(d3.json(trompeCache(s.url)))
                         optUrl.push(i);
                     };
                     if(s.children){
@@ -264,6 +264,11 @@ export class pulsationsExistentielles {
                     me.timelines.forEach(tm=>tm.play());
                 })    
             }
+        }
+
+        //trompe le cash
+        function trompeCache(url){
+            return url.includes('?') ? url + '&t=' + Date.now() : url + '?t=' + Date.now();
         }
 
         function initPosiColor(min, max){
@@ -1325,6 +1330,7 @@ export class pulsationsExistentielles {
                                     });                                                
                                     break;                        
                                 case "Raisonner":
+                                case "Résonner":
                                     //pouvoir -> actant                                            
                                     let idsActant = addPowerLinkDimEx(p,p.value_resource_id,'PO_','actants',"jdc:hasActant",intst,color);
                                     idsActant.forEach((idActant,i)=>{
